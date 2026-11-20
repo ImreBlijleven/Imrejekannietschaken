@@ -89,7 +89,7 @@ export function SettingsView() {
             max={DEPTH_MAX}
             value={settings.engineDepth}
             onChange={(e) => setDepth(Number(e.target.value))}
-            className="h-11 w-full"
+            className="h-12 w-full sm:h-11"
           />
           <IconButton label="Dieper" onClick={() => setDepth(settings.engineDepth + 1)} disabled={settings.engineDepth >= DEPTH_MAX}>
             <Plus className="size-5" aria-hidden />
@@ -111,7 +111,7 @@ export function SettingsView() {
           autoComplete="current-password"
           value={settings.coachToken}
           onChange={(e) => update({ ...settings, coachToken: e.target.value })}
-          className="min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3"
+          className="min-h-12 sm:min-h-11 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3"
         />
         <p className="text-xs leading-relaxed text-[var(--muted)]">
           Alleen nodig als de site online staat en er een wachtwoord is ingesteld (in Vercel als
@@ -128,7 +128,7 @@ export function SettingsView() {
           <Button variant="primary" onClick={doExport}>
             <Download className="size-4" aria-hidden /> Backup maken
           </Button>
-          <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--panel)] px-4 text-sm hover:bg-[var(--bg)] focus-within:outline focus-within:outline-2 focus-within:outline-[var(--accent)]">
+          <label className="inline-flex min-h-12 sm:min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--panel)] px-4 text-sm hover:bg-[var(--bg)] focus-within:outline focus-within:outline-2 focus-within:outline-[var(--accent)]">
             <Upload className="size-4" aria-hidden /> Terugzetten
             <input
               type="file"

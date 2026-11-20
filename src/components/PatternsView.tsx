@@ -15,7 +15,7 @@ import type { CoachFacts } from "@/lib/coach/types";
 import { formatLine } from "@/lib/chess/uci";
 import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
 import { LABEL_STYLE } from "./MoveList";
-import { BOARD_STYLE, Card, formatDate } from "./ui";
+import { BOARD_STYLE, Card, Skeleton, formatDate, useDelayed } from "./ui";
 
 const MIN_GAMES = 5; // vanaf zoveel partijen zijn patronen enigszins betrouwbaar
 
@@ -65,6 +65,54 @@ function mistakeArrows(m: MistakeRecord): Arrow[] {
   return arrows;
 }
 
+/** Eén categorie met teller en balk. Zonder `stat` toont dezelfde rij grijze blokken (laadstand). */
+function CategoryRow({
+  stat,
+  max = 1,
+  on = false,
+  onSelect,
+}: {
+  stat?: PatternStat;
+  max?: number;
+  on?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <button
+      onClick={onSelect}
+      disabled={!stat}
+      aria-pressed={stat ? on : undefined}
+      className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-[var(--panel)] px-4 py-3 text-left hover:bg-[var(--bg)] disabled:hover:bg-[var(--panel)] ${
+        on ? "border-[var(--accent)] ring-1 ring-[var(--accent)]" : "border-[var(--border)]"
+      }`}
+    >
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex items-baseline justify-between gap-2 text-sm">
+          {stat ? (
+            <>
+              <span className="font-medium">{CATEGORY_TEXT[stat.category]}</span>
+              <span className="num shrink-0 text-[var(--muted)]">
+                {stat.count}×{stat.recent !== stat.count && <> · {stat.recent}× recent</>}
+              </span>
+            </>
+          ) : (
+            <>
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-4 w-8" />
+            </>
+          )}
+        </div>
+        <div className="h-1.5 rounded-full bg-[var(--bg)]">
+          {stat && (
+            <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${(stat.count / max) * 100}%` }} />
+          )}
+        </div>
+      </div>
+      <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+    </button>
+  );
+}
+
 export function PatternsView() {
   const repo = useMemo(() => getRepository(), []);
   const detailRef = useRef<HTMLDivElement>(null);
@@ -73,6 +121,7 @@ export function PatternsView() {
   const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
   const [selected, setSelected] = useState<MistakeRecord | null>(null);
   const [totalGames, setTotalGames] = useState(0);
+  const showSkeleton = useDelayed(stats === null);
 
   useEffect(() => {
     repo.patternStats().then(setStats);
@@ -88,8 +137,6 @@ export function PatternsView() {
     });
   }, [repo, category]);
 
-  if (!stats) return <p className="text-[var(--muted)]">Laden…</p>;
-
   const header = (
     <div className="space-y-1">
       <h1 className="text-2xl font-bold">Jouw foutpatronen</h1>
@@ -99,6 +146,20 @@ export function PatternsView() {
       </p>
     </div>
   );
+
+  if (!stats)
+    return (
+      <div className="space-y-6">
+        {header}
+        {showSkeleton && (
+          <section aria-label="Categorieën laden" aria-busy="true" className="space-y-2">
+            <CategoryRow />
+            <CategoryRow />
+            <CategoryRow />
+          </section>
+        )}
+      </div>
+    );
 
   if (stats.length === 0)
     return (
@@ -125,32 +186,15 @@ export function PatternsView() {
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
         <section aria-label="Categorieën" className="space-y-2">
-          {stats.map((s) => {
-            const on = category === s.category;
-            return (
-              <button
-                key={s.category}
-                onClick={() => setCategory(s.category)}
-                aria-pressed={on}
-                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-[var(--panel)] px-4 py-3 text-left hover:bg-[var(--bg)] ${
-                  on ? "border-[var(--accent)] ring-1 ring-[var(--accent)]" : "border-[var(--border)]"
-                }`}
-              >
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex items-baseline justify-between gap-2 text-sm">
-                    <span className="font-medium">{CATEGORY_TEXT[s.category]}</span>
-                    <span className="num shrink-0 text-[var(--muted)]">
-                      {s.count}×{s.recent !== s.count && <> · {s.recent}× recent</>}
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-[var(--bg)]">
-                    <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${(s.count / max) * 100}%` }} />
-                  </div>
-                </div>
-                <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
-              </button>
-            );
-          })}
+          {stats.map((s) => (
+            <CategoryRow
+              key={s.category}
+              stat={s}
+              max={max}
+              on={category === s.category}
+              onSelect={() => setCategory(s.category)}
+            />
+          ))}
         </section>
 
         <div ref={detailRef} className="scroll-mt-4 space-y-3">
@@ -169,7 +213,7 @@ export function PatternsView() {
                       <button
                         onClick={() => setSelected(m)}
                         aria-pressed={on}
-                        className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm ${
+                        className={`flex min-h-12 sm:min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm ${
                           on ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel)]"
                         }`}
                       >

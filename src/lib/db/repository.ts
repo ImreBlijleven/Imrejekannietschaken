@@ -16,7 +16,8 @@ export interface Repository {
   getGame(id: string): Promise<GameRecord | undefined>;
   listGames(): Promise<GameRecord[]>;
   getOngoingGame(): Promise<GameRecord | undefined>;
-  deleteGame(id: string): Promise<void>;
+  deleteGame(id: string): Promise<void>; // soft delete
+  restoreGame(id: string): Promise<void>; // maakt een soft delete ongedaan
 
   saveMistake(m: MistakeRecord): Promise<void>;
   listMistakes(filter?: { category?: Category; gameId?: string }): Promise<MistakeRecord[]>;

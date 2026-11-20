@@ -28,7 +28,7 @@ import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Button, Card, IconButton } from "./ui";
+import { BOARD_STYLE, Button, Card, IconButton, KEYS, Kbd, KeyHint, useKeyShortcuts } from "./ui";
 
 const ELO_KEY = "schaakcoach.elo";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -58,7 +58,7 @@ function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+            className={`min-h-12 sm:min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
               on
                 ? "border-[var(--accent)] bg-[var(--accent-soft)] font-semibold"
                 : "border-[var(--border)] hover:bg-[var(--bg)]"
@@ -125,7 +125,7 @@ function Setup({
       )}
       <Card className="space-y-6 p-5 sm:p-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-balance">Nieuwe partij</h1>
+          <h1 className="text-2xl font-bold">Nieuwe partij</h1>
           <p className="text-sm text-[var(--muted)]">
             Speel tegen Stockfish. Na elke zet zie je hoe goed hij was, en de coach legt uit waarom.
           </p>
@@ -163,7 +163,7 @@ function Setup({
               onChange={(e) => setElo(Number(e.target.value))}
               aria-label="Elo van de computer"
               aria-valuetext={`Elo ${elo}`}
-              className="h-11 w-full"
+              className="h-12 w-full sm:h-11"
             />
             <IconButton label="50 Elo hoger" onClick={() => setElo(Math.min(ELO_MAX, elo + 50))} disabled={elo >= ELO_MAX}>
               <Plus className="size-5" aria-hidden />
@@ -469,6 +469,31 @@ export function PlayView() {
     await commit();
   }
 
+  /** Eén zet terug of vooruit. Vooruit naar de laatste zet tijdens een lopende partij = terug naar live. */
+  function step(d: number) {
+    if (!game || !game.plies.length) return;
+    const last = game.plies.length - 1;
+    const next = Math.max(0, Math.min(last, (selected ?? last) + d));
+    selectPly(game.status !== "afgelopen" && d > 0 && next === last && selected !== null ? null : next);
+  }
+
+  useKeyShortcuts((key) => {
+    if (!game) return false;
+    if (key === "ArrowLeft") {
+      step(-1);
+      return true;
+    }
+    if (key === "ArrowRight") {
+      step(1);
+      return true;
+    }
+    if (key === "Escape" && selected !== null && game.status !== "afgelopen") {
+      selectPly(null);
+      return true;
+    }
+    return false;
+  });
+
   if (!game) return <Setup onStart={start} ongoing={ongoing} onResume={resume} />;
 
   const finished = game.status === "afgelopen";
@@ -509,14 +534,6 @@ export function PlayView() {
         : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 22%, transparent 24%)" };
     }
   }
-
-  const go = (d: number) => {
-    if (!game.plies.length) return;
-    const cur = selected ?? game.plies.length - 1;
-    const next = Math.max(0, Math.min(game.plies.length - 1, cur + d));
-    // Vooruit naar de laatste zet tijdens een lopende partij = terug naar live.
-    selectPly(!finished && d > 0 && next === game.plies.length - 1 && selected !== null ? null : next);
-  };
 
   // Status onder het bord: altijd duidelijk wie aan zet is.
   const status = finished
@@ -604,11 +621,21 @@ export function PlayView() {
               }}
             />
           </div>
-          <div className="flex min-h-11 items-center gap-2">
-            <IconButton label="Vorige zet" onClick={() => go(-1)} disabled={!game.plies.length || selected === 0}>
+          <div className="flex min-h-12 sm:min-h-11 items-center gap-2">
+            <IconButton
+              label="Vorige zet"
+              shortcut={KEYS.prev}
+              onClick={() => step(-1)}
+              disabled={!game.plies.length || selected === 0}
+            >
               <ChevronLeft className="size-5" aria-hidden />
             </IconButton>
-            <IconButton label="Volgende zet" onClick={() => go(1)} disabled={selected === null || selected === game.plies.length - 1}>
+            <IconButton
+              label="Volgende zet"
+              shortcut={KEYS.next}
+              onClick={() => step(1)}
+              disabled={selected === null || selected === game.plies.length - 1}
+            >
               <ChevronRight className="size-5" aria-hidden />
             </IconButton>
             <p className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium" role="status" aria-live="polite">
@@ -616,13 +643,18 @@ export function PlayView() {
               <span className="truncate">{status.text}</span>
             </p>
             {reviewing && !finished && (
-              <Button variant="primary" onClick={() => selectPly(null)}>
+              <Button
+                variant="primary"
+                onClick={() => selectPly(null)}
+                title="Terug naar de partij (Esc)"
+                aria-keyshortcuts="Escape"
+              >
                 Live
               </Button>
             )}
           </div>
           {focusIsMistake && (
-            <label className="flex min-h-11 items-center gap-2 text-sm">
+            <label className="flex min-h-12 sm:min-h-11 items-center gap-2 text-sm">
               <input type="checkbox" className="size-5" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
               <span>
                 Pijlen tonen: <span className="text-blunder">rood = gespeeld</span>,{" "}
@@ -655,8 +687,19 @@ export function PlayView() {
 
       <div className="space-y-3 sm:space-y-4">
         {showLabels && <div className="hidden lg:block">{feedback}</div>}
-        <Card className="p-1.5 sm:p-3">
+        <Card className="space-y-2 p-1.5 sm:p-3">
           <MoveList plies={game.plies} selected={selected} onSelect={selectPly} showLabels={showLabels} />
+          {game.plies.length > 0 && (
+            <KeyHint>
+              <Kbd>←</Kbd> <Kbd>→</Kbd> door de zetten bladeren
+              {!finished && (
+                <>
+                  {" "}
+                  · <Kbd>Esc</Kbd> terug naar de partij
+                </>
+              )}
+            </KeyHint>
+          )}
         </Card>
         {chatAllowed ? (
           <CoachChat

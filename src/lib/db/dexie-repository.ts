@@ -56,6 +56,14 @@ export class DexieRepository implements Repository {
     });
   }
 
+  async restoreGame(id: string) {
+    const ts = now();
+    await this.db.transaction("rw", this.db.games, this.db.mistakes, async () => {
+      await this.db.games.update(id, { deleted: false, updatedAt: ts });
+      await this.db.mistakes.where("gameId").equals(id).modify({ deleted: false, updatedAt: ts });
+    });
+  }
+
   async saveMistake(m: MistakeRecord) {
     await this.db.mistakes.put({ ...m, updatedAt: now() });
   }

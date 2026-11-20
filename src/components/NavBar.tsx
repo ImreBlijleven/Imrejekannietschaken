@@ -18,7 +18,7 @@ export function NavBar() {
   return (
     <>
       <header className="hidden sm:block border-b border-[var(--border)] bg-[var(--panel)]">
-        <nav className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2" aria-label="Hoofdmenu">
+        <nav className="safe-x mx-auto flex max-w-6xl items-center gap-1 py-2" aria-label="Hoofdmenu">
           <span className="mr-4 flex items-center gap-2 font-bold">
             <ChessKnight className="size-5 text-[var(--accent-ink)]" aria-hidden />
             Schaakcoach
@@ -28,7 +28,7 @@ export function NavBar() {
               key={href}
               href={href}
               aria-current={active(href) ? "page" : undefined}
-              className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm hover:bg-[var(--bg)] ${
+              className={`flex min-h-12 sm:min-h-11 items-center gap-2 rounded-lg px-3 text-sm hover:bg-[var(--bg)] ${
                 active(href) ? "font-semibold text-[var(--accent-ink)]" : ""
               }`}
             >
@@ -41,7 +41,11 @@ export function NavBar() {
       <nav
         aria-label="Hoofdmenu"
         className="sm:hidden fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel)]"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
       >
         {NAV.map(({ href, label, Icon }) => {
           const on = active(href);

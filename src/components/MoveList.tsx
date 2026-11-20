@@ -44,7 +44,7 @@ export function MoveList({ plies, selected, onSelect, showLabels }: Props) {
       <button
         onClick={() => onSelect(p.ply)}
         aria-pressed={on}
-        className={`san inline-flex min-h-11 min-w-11 items-center justify-center justify-self-start rounded-md px-2 text-left text-sm hover:bg-[var(--bg)] ${
+        className={`san inline-flex min-h-12 sm:min-h-11 min-w-12 sm:min-w-11 items-center justify-center justify-self-start rounded-md px-2 text-left text-sm hover:bg-[var(--bg)] ${
           on ? "bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]" : ""
         }`}
       >

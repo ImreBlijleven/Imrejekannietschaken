@@ -11,7 +11,7 @@ import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Card, IconButton, formatDate } from "./ui";
+import { BOARD_STYLE, Card, IconButton, KEYS, Kbd, KeyHint, formatDate, useKeyShortcuts } from "./ui";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -45,10 +45,26 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
     setSelected(Math.min(game.plies.length - 1, Math.max(0, (selected ?? -1) + d)));
   };
 
+  useKeyShortcuts((key) => {
+    if (key === "ArrowLeft") {
+      go(-1);
+      return true;
+    }
+    if (key === "ArrowRight") {
+      go(1);
+      return true;
+    }
+    if (key === "Escape") {
+      onClose();
+      return true;
+    }
+    return false;
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <IconButton label="Terug naar partijen" variant="ghost" onClick={onClose}>
+        <IconButton label="Terug naar partijen" shortcut={KEYS.back} variant="ghost" onClick={onClose}>
           <ArrowLeft className="size-5" aria-hidden />
         </IconButton>
         <div className="min-w-0">
@@ -76,17 +92,22 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
               }}
             />
           </div>
-          <div className="flex min-h-11 items-center gap-2">
-            <IconButton label="Vorige zet" onClick={() => go(-1)} disabled={!selected}>
+          <div className="flex min-h-12 sm:min-h-11 items-center gap-2">
+            <IconButton label="Vorige zet" shortcut={KEYS.prev} onClick={() => go(-1)} disabled={!selected}>
               <ChevronLeft className="size-5" aria-hidden />
             </IconButton>
-            <IconButton label="Volgende zet" onClick={() => go(1)} disabled={selected === game.plies.length - 1}>
+            <IconButton
+              label="Volgende zet"
+              shortcut={KEYS.next}
+              onClick={() => go(1)}
+              disabled={selected === game.plies.length - 1}
+            >
               <ChevronRight className="size-5" aria-hidden />
             </IconButton>
             <span className="text-sm font-medium">{label}</span>
           </div>
           {isMistake && (
-            <label className="flex min-h-11 items-center gap-2 text-sm">
+            <label className="flex min-h-12 sm:min-h-11 items-center gap-2 text-sm">
               <input type="checkbox" className="size-5" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
               <span>
                 Pijlen tonen: <span className="text-blunder">rood = gespeeld</span>,{" "}
@@ -106,8 +127,11 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
           </Card>
         </div>
         <div className="space-y-4">
-          <Card className="p-1.5 sm:p-3">
+          <Card className="space-y-2 p-1.5 sm:p-3">
             <MoveList plies={game.plies} selected={selected} onSelect={setSelected} showLabels />
+            <KeyHint>
+              <Kbd>←</Kbd> <Kbd>→</Kbd> door de zetten bladeren · <Kbd>Esc</Kbd> terug naar de lijst
+            </KeyHint>
           </Card>
           <CoachChat
             key={`${game.id}-${selected}`}

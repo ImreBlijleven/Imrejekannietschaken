@@ -121,7 +121,7 @@ export function CoachChat({ contextLabel, intro, buildFacts, suggestions = [] }:
               key={s}
               onClick={() => send(s)}
               disabled={busy}
-              className="min-h-11 rounded-full border border-[var(--border)] px-4 text-sm hover:bg-[var(--bg)] disabled:opacity-45"
+              className="min-h-12 sm:min-h-11 rounded-full border border-[var(--border)] px-4 text-sm hover:bg-[var(--bg)] disabled:opacity-45"
             >
               {s}
             </button>
@@ -144,12 +144,12 @@ export function CoachChat({ contextLabel, intro, buildFacts, suggestions = [] }:
           onChange={(e) => setInput(e.target.value)}
           placeholder="Vraag de coach…"
           enterKeyHint="send"
-          className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3"
+          className="min-h-12 sm:min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3"
         />
         <button
           disabled={busy || !input.trim()}
           aria-label="Verstuur vraag"
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--on-accent)] disabled:opacity-45"
+          className="inline-flex size-12 sm:size-11 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--on-accent)] disabled:opacity-45"
         >
           <SendHorizontal className="size-5" aria-hidden />
         </button>

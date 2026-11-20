@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useEffect, useEffectEvent, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -23,7 +23,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm transition-[filter,background-color] disabled:pointer-events-none disabled:opacity-45 ${
+      className={`inline-flex min-h-12 sm:min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm transition-[filter,background-color] disabled:pointer-events-none disabled:opacity-45 ${
         block ? "w-full" : ""
       } ${VARIANT[variant]} ${className}`}
     >
@@ -35,17 +35,24 @@ export function Button({
 /** Vierkante icoonknop, 44×44, met verplicht toegankelijk label. */
 export function IconButton({
   label,
+  shortcut,
   variant = "secondary",
   className = "",
   children,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; variant?: Variant; children: ReactNode }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string;
+  shortcut?: Shortcut;
+  variant?: Variant;
+  children: ReactNode;
+}) {
   return (
     <button
       {...rest}
       aria-label={label}
-      title={label}
-      className={`inline-flex size-11 shrink-0 items-center justify-center rounded-lg transition-[filter,background-color] disabled:pointer-events-none disabled:opacity-35 ${VARIANT[variant]} ${className}`}
+      aria-keyshortcuts={shortcut?.aria}
+      title={shortcut ? `${label} (${shortcut.hint})` : label}
+      className={`inline-flex size-12 sm:size-11 shrink-0 items-center justify-center rounded-lg transition-[filter,background-color] disabled:pointer-events-none disabled:opacity-35 ${VARIANT[variant]} ${className}`}
     >
       {children}
     </button>
@@ -81,3 +88,72 @@ export const BOARD_STYLE = {
   lightSquareNotationStyle: { color: "#7a5a3a", fontWeight: 700 },
   darkSquareNotationStyle: { color: "#ffffff", fontWeight: 700 },
 };
+
+/**
+ * Grijs blok in de vorm van echte inhoud. Pulseert alleen zonder "reduced motion".
+ * Gebruik binnen dezelfde component als de geladen staat, zodat er niets verspringt.
+ */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <span aria-hidden className={`block rounded-md bg-[var(--border)] motion-safe:animate-pulse ${className}`} />;
+}
+
+/** true zodra `active` langer dan `ms` aanhoudt; voorkomt een flits van skeletons bij snel laden. */
+export function useDelayed(active: boolean, ms = 300): boolean {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => setLate(true), ms);
+    return () => {
+      clearTimeout(t);
+      setLate(false);
+    };
+  }, [active, ms]);
+  return active && late;
+}
+
+/** Sneltoets: `hint` is wat je ziet (bv. "←"), `aria` de naam voor aria-keyshortcuts (bv. "ArrowLeft"). */
+export interface Shortcut {
+  hint: string;
+  aria: string;
+}
+export const KEYS = {
+  prev: { hint: "←", aria: "ArrowLeft" },
+  next: { hint: "→", aria: "ArrowRight" },
+  back: { hint: "Esc", aria: "Escape" },
+} satisfies Record<string, Shortcut>;
+
+/** Typt iemand in een veld? Dan gaan sneltoetsen niet af. */
+function isTyping(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  if (!t) return false;
+  return t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName);
+}
+
+/**
+ * Globale sneltoetsen zonder modifier (pijltjes, Esc). Gaan niet af tijdens typen,
+ * bij IME-invoer of met Ctrl/⌘/Alt ingedrukt. Geef `true` terug als de toets is afgehandeld.
+ */
+export function useKeyShortcuts(onKey: (key: string) => boolean | void) {
+  const handle = useEffectEvent(onKey);
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || isTyping(e)) return;
+      if (handle(e.key)) e.preventDefault();
+    };
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+}
+
+/** Zichtbare hint, alleen op apparaten met muis/trackpad (daar is meestal een toetsenbord). */
+export function KeyHint({ children }: { children: ReactNode }) {
+  return <p className="hidden text-xs text-[var(--muted)] [@media(pointer:fine)]:block">{children}</p>;
+}
+
+export function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="rounded border border-[var(--border)] bg-[var(--panel)] px-1.5 py-0.5 font-sans text-[11px] font-medium text-[var(--fg)]">
+      {children}
+    </kbd>
+  );
+}

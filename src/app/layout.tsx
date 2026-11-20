@@ -1,5 +1,7 @@
+import { ViewTransition } from "react";
 import type { Metadata, Viewport } from "next";
 import { NavBar } from "@/components/NavBar";
+import { Toaster } from "@/components/Toaster";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,11 +26,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <NavBar />
         <main
-          className="mx-auto w-full max-w-6xl flex-1 px-2 pt-2 sm:px-4 sm:py-6"
+          className="safe-x mx-auto w-full max-w-6xl flex-1 pt-2 sm:py-6"
           style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}
         >
-          {children}
+          {/* Route-navigaties zijn transitions in Next.js; dit geeft een korte crossfade tussen tabbladen. */}
+          <ViewTransition>{children}</ViewTransition>
         </main>
+        <Toaster />
       </body>
     </html>
   );
