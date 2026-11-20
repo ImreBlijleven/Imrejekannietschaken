@@ -6,6 +6,22 @@ import { complete, providerConfigs, type LlmMessage, type ProviderConfig } from 
 import type { CoachRequest, CoachResponse } from "./types";
 import { validateAnswer } from "./validate";
 
+/**
+ * Haalt markdown-opmaak weg voor het geval het model zich niet aan de instructie houdt:
+ * kopjes, vet/cursief, code-tekens en opsommingstekens. De app toont platte tekst.
+ */
+export function toPlainText(text: string): string {
+  return text
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]*/gm, "") // # Kopje
+    .replace(/\*\*(.+?)\*\*/g, "$1") // **vet**
+    .replace(/__(.+?)__/g, "$1") // __vet__
+    .replace(/(^|[^*\w])\*(?!\s)(.+?)\*(?!\w)/g, "$1$2") // *cursief*
+    .replace(/`([^`]*)`/g, "$1") // `code`
+    .replace(/^[ \t]*[-*•][ \t]+/gm, "") // - opsomming
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function askCoach(
   req: CoachRequest,
   providers: ProviderConfig[] = providerConfigs(),
@@ -14,8 +30,7 @@ export async function askCoach(
     return {
       answer: "",
       warnings: [],
-      error:
-        "Geen AI-aanbieder ingesteld. Zet bv. GROQ_API_KEY in .env.local (zie README) en herstart de server.",
+      error: "Geen AI-aanbieder ingesteld. Zet bv. GROQ_API_KEY in .env.local (zie README) en herstart de server.",
     };
   }
 
@@ -29,7 +44,7 @@ export async function askCoach(
   const errors: string[] = [];
   for (const p of providers) {
     try {
-      let answer = await complete(p, messages);
+      let answer = toPlainText(await complete(p, messages));
       let check = validateAnswer(answer, req.facts);
       if (!check.ok) {
         // Eén correctiepoging met concrete feedback.
@@ -39,14 +54,16 @@ export async function askCoach(
         ]
           .filter(Boolean)
           .join("; ");
-        answer = await complete(p, [
-          ...messages,
-          { role: "assistant", content: answer },
-          {
-            role: "user",
-            content: `Je antwoord bevat ${problems}. Herschrijf het antwoord zonder deze zetten/getallen; gebruik alleen wat in FEITEN staat. Geef alleen het verbeterde antwoord.`,
-          },
-        ]);
+        answer = toPlainText(
+          await complete(p, [
+            ...messages,
+            { role: "assistant", content: answer },
+            {
+              role: "user",
+              content: `Je antwoord bevat ${problems}. Herschrijf het antwoord zonder deze zetten/getallen; gebruik alleen wat in FEITEN staat. Geef alleen het verbeterde antwoord, kort en zonder opmaak.`,
+            },
+          ]),
+        );
         check = validateAnswer(answer, req.facts);
       }
       const warnings: string[] = [];
