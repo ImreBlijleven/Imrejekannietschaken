@@ -27,3 +27,24 @@ body {
   color: var(--fg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+/* Telefoon: geen blauwe tik-flits, en het bord mag niet meescrollen tijdens slepen. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+.board-touch {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* iOS zoomt in op invoervelden met tekst kleiner dan 16px. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  main {
+    padding-bottom: 1.5rem !important;
+  }
+}

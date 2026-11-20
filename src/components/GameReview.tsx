@@ -38,16 +38,16 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-lg sm:text-2xl font-bold">
           Partij van {new Date(game.createdAt).toLocaleDateString("nl-NL")} · {resultText(game)}
         </h1>
         <button onClick={onClose} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm">
           ← Terug
         </button>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,520px)_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,520px)_1fr]">
         <div className="space-y-3">
-          <div className="w-full max-w-[520px] aspect-square">
+          <div className="board-touch w-full max-w-[520px] aspect-square">
             <Chessboard
               options={{
                 id: "reviewbord",

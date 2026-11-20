@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { PlyRecord } from "@/lib/db/types";
 import type { Label } from "@/lib/chess/evaluation";
 
@@ -47,7 +48,9 @@ export function MoveList({ plies, selected, onSelect, showLabels }: Props) {
   };
 
   return (
-    <div className="grid grid-cols-[2.5rem_1fr_1fr] gap-y-0.5 text-sm max-h-64 overflow-y-auto">
+    <>
+      <MoveStrip plies={plies} selected={selected} onSelect={onSelect} cell={cell} />
+      <div className="hidden sm:grid grid-cols-[2.5rem_1fr_1fr] gap-y-0.5 text-sm max-h-64 overflow-y-auto">
       {rows.map((r) => (
         <div key={`${r.no}-${r.w?.ply ?? r.b?.ply}`} className="contents">
           <span className="text-[var(--muted)] py-0.5">{r.no}.</span>
@@ -56,6 +59,34 @@ export function MoveList({ plies, selected, onSelect, showLabels }: Props) {
         </div>
       ))}
       {plies.length === 0 && <p className="col-span-3 text-[var(--muted)]">Nog geen zetten.</p>}
+      </div>
+    </>
+  );
+}
+
+/** Telefoon: alle zetten op één regel die horizontaal scrolt en meeloopt met de laatste zet. */
+function MoveStrip({
+  plies,
+  selected,
+  cell,
+}: Omit<Props, "showLabels"> & { cell: (p?: PlyRecord) => React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const target = el.querySelector<HTMLElement>("[data-sel='1']");
+    if (target) target.scrollIntoView({ block: "nearest", inline: "center" });
+    else el.scrollLeft = el.scrollWidth;
+  }, [plies.length, selected]);
+  if (plies.length === 0) return <p className="sm:hidden text-sm text-[var(--muted)] px-1">Nog geen zetten.</p>;
+  return (
+    <div ref={ref} className="sm:hidden flex items-center gap-0.5 overflow-x-auto whitespace-nowrap text-sm py-0.5">
+      {plies.map((p) => (
+        <span key={p.ply} data-sel={selected === p.ply ? "1" : "0"} className="flex items-center">
+          {p.color === "w" && <span className="text-[var(--muted)] pl-1">{p.fenBefore.split(" ")[5]}.</span>}
+          {cell(p)}
+        </span>
+      ))}
     </div>
   );
 }

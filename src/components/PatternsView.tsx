@@ -85,7 +85,7 @@ export function PatternsView() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
         <div className="space-y-2">
           {stats.map((s) => (
             <button
@@ -157,7 +157,7 @@ export function PatternsView() {
           )}
           {selected && (
             <div className="space-y-3">
-              <div className="max-w-[360px] aspect-square">
+              <div className="board-touch w-full max-w-[360px] aspect-square">
                 <Chessboard
                   options={{
                     id: "patroonbord",

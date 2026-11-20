@@ -5,17 +5,26 @@ import { LABEL_TEXT, formatScore } from "@/lib/chess/evaluation";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { LABEL_STYLE } from "./MoveList";
 
-export function MoveFeedback({ ply, pending }: { ply: PlyRecord | null; pending: boolean }) {
+export function MoveFeedback({
+  ply,
+  pending,
+  compact = false,
+}: {
+  ply: PlyRecord | null;
+  pending: boolean;
+  compact?: boolean;
+}) {
+  const box = `rounded-xl border border-[var(--border)] bg-[var(--panel)] text-sm ${compact ? "px-3 py-2" : "p-4"}`;
   if (pending) {
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-sm animate-pulse">
+      <div className={`${box} animate-pulse`}>
         Stockfish beoordeelt je zet…
       </div>
     );
   }
   if (!ply || !ply.label) {
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-sm text-[var(--muted)]">
+      <div className={`${box} text-[var(--muted)]`}>
         Doe een zet; je krijgt hier direct een beoordeling.
       </div>
     );
@@ -23,8 +32,8 @@ export function MoveFeedback({ ply, pending }: { ply: PlyRecord | null; pending:
   const st = LABEL_STYLE[ply.label];
   const isMistake = ply.label === "onnauwkeurig" || ply.label === "fout" || ply.label === "blunder";
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-4 text-sm space-y-1">
-      <p className="text-base">
+    <div className={`${box} space-y-1`}>
+      <p className={compact ? "" : "text-base"}>
         <span className="font-mono font-semibold">{ply.san}</span>{" "}
         <span className={`font-bold ${st.cls}`}>
           {st.icon} {LABEL_TEXT[ply.label]}

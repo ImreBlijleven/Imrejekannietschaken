@@ -100,6 +100,7 @@ export function PlayView() {
   const [busy, setBusy] = useState<"" | "beoordelen" | "computer">("");
   const [waitForContinue, setWaitForContinue] = useState(false);
   const [showBest, setShowBest] = useState(true);
+  const [moveFrom, setMoveFrom] = useState<string | null>(null); // tik-om-te-zetten: gekozen stuk
 
   useEffect(() => {
     repo.getOngoingGame().then((g) => setOngoing(g ?? null));
@@ -138,6 +139,13 @@ export function PlayView() {
       const updated = await evaluatePlayerPly(g, ply);
       if (gameRef.current !== g) return;
       g.plies[ply.ply] = updated;
+      if (g.mode === "training" && (updated.label === "fout" || updated.label === "blunder")) {
+        try {
+          navigator.vibrate?.(updated.label === "blunder" ? [80, 60, 80] : 60);
+        } catch {
+          /* niet ondersteund */
+        }
+      }
       const over = finishIfOver(g);
       setBusy("");
       await commit();
@@ -176,11 +184,17 @@ export function PlayView() {
     else await runOpponent();
   }
 
+  function canMove(): boolean {
+    const g = gameRef.current;
+    if (!g || busy || waitForContinue || g.status !== "bezig" || selected !== null) return false;
+    return chessFromPlies(g.plies).turn() === g.playerColor;
+  }
+
   function onDrop(from: string, to: string | null): boolean {
     const g = gameRef.current;
-    if (!g || !to || busy || waitForContinue || g.status !== "bezig" || selected !== null) return false;
+    setMoveFrom(null);
+    if (!g || !to || !canMove()) return false;
     const chess = chessFromPlies(g.plies);
-    if (chess.turn() !== g.playerColor) return false;
     const piece = chess.get(from as never);
     const promotion = piece?.type === "p" && (to[1] === "8" || to[1] === "1") ? "q" : undefined;
     const ply = applyMove(g, { from, to, promotion });
@@ -188,6 +202,22 @@ export function PlayView() {
     setGame({ ...g, plies: [...g.plies] });
     void afterPlayerMove(ply);
     return true;
+  }
+
+  /** Tik op een eigen stuk om het te kiezen, tik daarna op een doelveld. */
+  function onSquareTap(square: string) {
+    const g = gameRef.current;
+    if (!g || !canMove()) return;
+    const chess = chessFromPlies(g.plies);
+    if (moveFrom) {
+      const legal = chess.moves({ square: moveFrom as never, verbose: true }).some((m) => m.to === square);
+      if (legal) {
+        onDrop(moveFrom, square);
+        return;
+      }
+    }
+    const piece = chess.get(square as never);
+    setMoveFrom(piece && piece.color === g.playerColor && square !== moveFrom ? square : null);
   }
 
   async function takeBack() {
@@ -242,6 +272,29 @@ export function PlayView() {
     }
   }
 
+  const squareStyles: Record<string, React.CSSProperties> = {};
+  const lastPly = game.plies.at(-1);
+  if (!focusPly && lastPly) {
+    const lm = uciToMove(lastPly.uci);
+    squareStyles[lm.from] = { background: "rgba(255, 214, 0, 0.35)" };
+    squareStyles[lm.to] = { background: "rgba(255, 214, 0, 0.45)" };
+  }
+  if (moveFrom && !focusPly) {
+    squareStyles[moveFrom] = { background: "rgba(47, 111, 79, 0.5)" };
+    const chess = chessFromPlies(game.plies);
+    for (const m of chess.moves({ square: moveFrom as never, verbose: true })) {
+      squareStyles[m.to] = m.captured
+        ? { background: "radial-gradient(circle, transparent 58%, rgba(0,0,0,0.25) 60%)" }
+        : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 22%, transparent 24%)" };
+    }
+  }
+  const go = (d: number) => {
+    if (!game.plies.length) return;
+    const cur = selected ?? game.plies.length - 1;
+    const next = Math.max(0, Math.min(game.plies.length - 1, cur + d));
+    setSelected(!finished && next === game.plies.length - 1 && d > 0 && selected !== null ? null : next);
+  };
+
   const chatAllowed = game.mode === "training" || finished;
   // De chat gaat over de geselecteerde zet, of anders over je laatste (beoordeelde) zet.
   const chatPly = focusPly ?? (lastPlayerPly?.label ? lastPlayerPly : null);
@@ -250,9 +303,9 @@ export function PlayView() {
   const mistakes = game.plies.filter((p) => p.color === game.playerColor && p.category);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,560px)_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:gap-6 lg:grid-cols-[minmax(0,560px)_1fr]">
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-xs sm:text-sm px-1">
           <span>
             {game.playerColor === "w" ? "Jij: wit" : "Jij: zwart"} ·{" "}
             {LEVELS.find((l) => l.value === game.level)?.name} · {game.mode === "training" ? "Training" : "Partij"}
@@ -261,37 +314,74 @@ export function PlayView() {
             {busy === "computer" ? "Computer denkt na…" : busy === "beoordelen" ? "Beoordelen…" : ""}
           </span>
         </div>
-        <div className="w-full max-w-[560px] aspect-square">
+        <div className="board-touch w-full max-w-[560px] aspect-square">
           <Chessboard
             options={{
               position: boardFen,
               boardOrientation: game.playerColor === "w" ? "white" : "black",
               onPieceDrop: ({ sourceSquare, targetSquare }) => onDrop(sourceSquare, targetSquare),
+              onPieceDrag: () => setMoveFrom(null),
+              onSquareClick: ({ square }) => onSquareTap(square),
               allowDragging: !finished && selected === null,
+              squareStyles,
               arrows,
-              allowDrawingArrows: true,
+              allowDrawingArrows: false,
               id: "speelbord",
             }}
           />
         </div>
-        {focusPly && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-[var(--muted)]">Je bekijkt zet {plyName(focusPly)}.</span>
-            {focusPly.label && !["beste", "goed"].includes(focusPly.label) && (
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
-                Toon rood = gespeeld, groen = beter
-              </label>
-            )}
-            <button onClick={() => setSelected(null)} className="rounded-lg border border-[var(--border)] px-3 py-1">
-              Terug naar partij
-            </button>
+        {/* Op de telefoon staat de beoordeling direct onder het bord. */}
+        {showLabels && (
+          <div className="lg:hidden">
+            <MoveFeedback ply={feedbackPly} pending={busy === "beoordelen" && !focusPly} compact />
           </div>
         )}
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button
+            onClick={() => go(-1)}
+            disabled={!game.plies.length}
+            aria-label="Vorige zet"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 disabled:opacity-40"
+          >
+            ◀
+          </button>
+          <button
+            onClick={() => go(1)}
+            disabled={selected === null}
+            aria-label="Volgende zet"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 disabled:opacity-40"
+          >
+            ▶
+          </button>
+          {focusPly ? (
+            <>
+              <span className="text-[var(--muted)]">Zet {plyName(focusPly)}</span>
+              {!finished && (
+                <button
+                  onClick={() => setSelected(null)}
+                  className="ml-auto rounded-lg bg-[var(--accent)] text-white px-3 py-2"
+                >
+                  Terug naar partij
+                </button>
+              )}
+            </>
+          ) : (
+            <span className="text-[var(--muted)] text-xs">Tik op een stuk en dan op een veld, of sleep.</span>
+          )}
+        </div>
+        {focusPly?.label && !["beste", "goed"].includes(focusPly.label) && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
+            Pijlen: rood = gespeeld, groen = beter
+          </label>
+        )}
         {!finished && (
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
             {waitForContinue && (
-              <button onClick={continueGame} className="rounded-lg bg-[var(--accent)] text-white px-4 py-2 text-sm">
+              <button
+                onClick={continueGame}
+                className="col-span-2 rounded-lg bg-[var(--accent)] text-white px-4 py-3 sm:py-2 text-sm font-semibold"
+              >
                 Doorgaan zonder terugnemen
               </button>
             )}
@@ -299,13 +389,16 @@ export function PlayView() {
               <button
                 onClick={takeBack}
                 disabled={!!busy || !lastPlayerPly}
-                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] bg-[var(--panel)] px-4 py-3 sm:py-2 text-sm disabled:opacity-50"
               >
-                Zet terugnemen
+                ↶ Terugnemen
               </button>
             )}
-            <button onClick={resign} className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm">
-              Opgeven
+            <button
+              onClick={() => confirm("Weet je zeker dat je wilt opgeven?") && resign()}
+              className="rounded-lg border border-[var(--border)] bg-[var(--panel)] px-4 py-3 sm:py-2 text-sm"
+            >
+              🏳 Opgeven
             </button>
           </div>
         )}
@@ -351,9 +444,13 @@ export function PlayView() {
         )}
       </div>
 
-      <div className="space-y-4">
-        {showLabels && <MoveFeedback ply={feedbackPly} pending={busy === "beoordelen" && !focusPly} />}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-3">
+      <div className="space-y-3 sm:space-y-4">
+        {showLabels && (
+          <div className="hidden lg:block">
+            <MoveFeedback ply={feedbackPly} pending={busy === "beoordelen" && !focusPly} />
+          </div>
+        )}
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-2 sm:p-3">
           <MoveList plies={game.plies} selected={selected} onSelect={setSelected} showLabels={showLabels} />
         </div>
         {chatAllowed ? (

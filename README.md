@@ -51,6 +51,21 @@ Open http://localhost:3000.
 Gratis limieten veranderen vaak. Controleer ze in je eigen account. Let op: op de gratis tier van Gemini mag
 Google je gegevens gebruiken om producten te verbeteren ([voorwaarden](https://ai.google.dev/gemini-api/terms)).
 
+## Op je telefoon
+
+De app is gemaakt voor de telefoon. Je doet een zet door op een stuk te tikken en daarna op een veld (de legale
+velden krijgen een stip), of door te slepen. De menubalk staat onderaan.
+
+**Als app installeren** (schermvullend, met een eigen icoon op je beginscherm):
+- iPhone (Safari): deelknop → *Zet op beginscherm*
+- Android (Chrome): menu ⋮ → *App installeren* of *Toevoegen aan startscherm*
+
+Op een telefoon gebruikt Stockfish standaard diepte 12 in plaats van 14, omdat dat sneller is. Je kunt dit
+aanpassen bij *Instellingen*.
+
+Je telefoon moet de app kunnen bereiken, dus zet hem online (zie *Online zetten*). Je kunt hem ook thuis via wifi
+gebruiken met `npm run dev -- -H 0.0.0.0`; open dan `http://<ip-van-je-computer>:3000` op je telefoon.
+
 ## Modellen vergelijken (testset)
 
 ```bash
@@ -96,3 +111,9 @@ scripts/          Stockfish kopiëren, testset
 - De patroonregels zijn eenvoudig. Een fout die alleen een pion kost, of een tactiek die pas na meer dan 8 halve
   zetten materiaal wint, valt in de algemene categorie (opening / middenspel / eindspel).
 - Zetten staan in Engelse notatie (N, B, R, Q). In je vraag mag je ook Nederlandse letters gebruiken (P, L, T, D).
+- Trillen bij een fout werkt alleen op Android. Safari op de iPhone ondersteunt dat niet.
+
+## Licenties
+
+Het paard in het app-icoon is gebaseerd op de schaakstukken van Colin M.L. Burnett
+([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)). Stockfish valt onder de GPLv3.
