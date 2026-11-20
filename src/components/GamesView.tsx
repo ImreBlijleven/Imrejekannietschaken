@@ -7,14 +7,14 @@ import type { GameRecord } from "@/lib/db/types";
 import { outcome, resultText, strengthName, type Outcome } from "@/lib/client/game-flow";
 import { GameReview } from "./GameReview";
 import { showToast } from "./Toaster";
-import { Card, IconButton, Skeleton, formatDateTime, useDelayed } from "./ui";
+import { IconButton, Skeleton, formatDateTime, useDelayed } from "./ui";
 
-const BADGE: Record<Outcome | "bezig", string> = {
-  gewonnen: "bg-[var(--accent-soft)] text-good",
-  verloren: "bg-[var(--bg)] text-blunder",
-  remise: "bg-[var(--bg)] text-[var(--fg)]",
-  afgebroken: "bg-[var(--bg)] text-[var(--muted)]",
-  bezig: "bg-[var(--bg)] text-[var(--warning)]",
+const RESULT_COLOR: Record<Outcome | "bezig", string> = {
+  gewonnen: "text-good",
+  verloren: "text-blunder",
+  remise: "text-[var(--fg)]",
+  afgebroken: "text-[var(--muted)]",
+  bezig: "text-[var(--warning)]",
 };
 
 /** Eén partij in de lijst. Zonder `game` toont dezelfde rij grijze blokken (laadstand). */
@@ -33,13 +33,13 @@ function GameRow({
       <button
         onClick={onOpen}
         disabled={!g}
-        className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left hover:bg-[var(--bg)] disabled:hover:bg-transparent"
+        className="flex min-h-16 min-w-0 flex-1 items-center gap-3 px-1 py-3 text-left"
       >
         <span className="min-w-0 flex-1 space-y-1">
           <span className="flex items-center gap-2">
             {g && state ? (
               <>
-                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${BADGE[state]}`}>
+                <span className={`text-sm font-semibold ${RESULT_COLOR[state]}`}>
                   {g.status === "bezig" ? "Bezig" : resultText(g)}
                 </span>
                 <span className="num text-xs text-[var(--muted)]">{formatDateTime(g.createdAt)}</span>
@@ -68,7 +68,7 @@ function GameRow({
         label="Partij verwijderen"
         variant="ghost"
         disabled={!g}
-        className="mr-2 text-[var(--muted)] hover:text-[var(--danger)]"
+        className="text-[var(--muted)] hover:text-[var(--danger)]"
         onClick={onDelete}
       >
         <Trash2 className="size-4" aria-hidden />
@@ -91,22 +91,19 @@ export function GamesView() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Mijn partijen</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Partijen</h1>
       {games === null && showSkeleton && (
-        <Card className="overflow-hidden">
-          <ul className="divide-y divide-[var(--border)]" aria-busy="true" aria-label="Partijen laden">
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]" aria-busy="true" aria-label="Partijen laden">
             <GameRow />
             <GameRow />
-            <GameRow />
-          </ul>
-        </Card>
+          <GameRow />
+        </ul>
       )}
       {games?.length === 0 && (
-        <Card className="p-5 text-sm text-[var(--muted)]">Nog geen partijen gespeeld. Start er een via Spelen.</Card>
+        <p className="text-[var(--muted)]">Nog geen partijen.</p>
       )}
       {games && games.length > 0 && (
-        <Card className="overflow-hidden">
-          <ul className="divide-y divide-[var(--border)]">
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
             {games.map((g) => (
               <GameRow
                 key={g.id}
@@ -136,8 +133,7 @@ export function GamesView() {
                 }}
               />
             ))}
-          </ul>
-        </Card>
+        </ul>
       )}
     </div>
   );

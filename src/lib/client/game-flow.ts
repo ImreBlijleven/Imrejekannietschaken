@@ -27,7 +27,7 @@ const OLD_LEVEL_NAMES: Record<number, string> = {
 };
 
 export function strengthName(game: Pick<GameRecord, "elo" | "level">): string {
-  if (game.elo !== undefined) return `Elo ${game.elo}${game.elo < STOCKFISH_ELO_MIN ? " (geschat)" : ""}`;
+  if (game.elo !== undefined) return `Elo ${game.elo < STOCKFISH_ELO_MIN ? "≈" : ""}${game.elo}`;
   return OLD_LEVEL_NAMES[game.level] ?? `Niveau ${game.level}`;
 }
 

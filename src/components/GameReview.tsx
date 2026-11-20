@@ -7,11 +7,11 @@ import type { GameRecord } from "@/lib/db/types";
 import { buildFacts } from "@/lib/client/analysis";
 import { biggestMistakes, resultText, strengthName } from "@/lib/client/game-flow";
 import { uciToMove } from "@/lib/chess/uci";
-import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
+import { CoachChat } from "./CoachChat";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Card, IconButton, KEYS, Kbd, KeyHint, formatDate, useKeyShortcuts } from "./ui";
+import { BOARD_STYLE, IconButton, KEYS, formatDate, useKeyShortcuts } from "./ui";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -20,14 +20,12 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
   const [selected, setSelected] = useState<number | null>(
     () => biggestMistakes(game, 1)[0]?.ply ?? (game.plies.length ? game.plies.length - 1 : null),
   );
-  const [showBest, setShowBest] = useState(true);
   const ply = selected !== null ? game.plies[selected] : null;
   const isMistake = !!ply?.label && !["beste", "goed"].includes(ply.label) && !!ply.bestUci;
-  const withArrows = isMistake && showBest;
 
   const arrows: Arrow[] = [];
   const squareStyles: Record<string, React.CSSProperties> = {};
-  if (ply && withArrows) {
+  if (ply && isMistake) {
     const p = uciToMove(ply.uci);
     const b = uciToMove(ply.bestUci!);
     arrows.push({ startSquare: p.from, endSquare: p.to, color: "rgba(185,28,28,0.85)" });
@@ -37,7 +35,7 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
     squareStyles[lm.from] = { background: "rgba(255, 214, 0, 0.35)" };
     squareStyles[lm.to] = { background: "rgba(255, 214, 0, 0.45)" };
   }
-  const fen = ply ? (withArrows ? ply.fenBefore : ply.fenAfter) : START_FEN;
+  const fen = ply ? (isMistake ? ply.fenBefore : ply.fenAfter) : START_FEN;
   const label = ply ? `${moveNumber(ply)}${ply.color === "w" ? "." : "..."} ${ply.san}` : "Beginstelling";
 
   const go = (d: number) => {
@@ -63,22 +61,20 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <IconButton label="Terug naar partijen" shortcut={KEYS.back} variant="ghost" onClick={onClose}>
           <ArrowLeft className="size-5" aria-hidden />
         </IconButton>
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold">
-            {formatDate(game.createdAt)} · {resultText(game)}
-          </h1>
-          <p className="truncate text-xs text-[var(--muted)]">
-            {strengthName(game)} · {game.playerColor === "w" ? "wit" : "zwart"}
-            {game.accuracy !== undefined && <> · nauwkeurigheid {game.accuracy.toFixed(0)}%</>}
-          </p>
-        </div>
+        <h1 className="min-w-0 truncate text-lg font-semibold">
+          {resultText(game)}
+          <span className="num font-normal text-[var(--muted)]">
+            {" "}
+            · {formatDate(game.createdAt)} · {strengthName(game)}
+          </span>
+        </h1>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,520px)_1fr] lg:gap-6">
-        <div className="space-y-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,520px)_1fr] lg:gap-8">
+        <div className="space-y-3">
           <div className="board-touch aspect-square w-full max-w-[520px] overflow-hidden rounded-lg">
             <Chessboard
               options={{
@@ -92,55 +88,37 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
               }}
             />
           </div>
-          <div className="flex min-h-12 sm:min-h-11 items-center gap-2">
-            <IconButton label="Vorige zet" shortcut={KEYS.prev} onClick={() => go(-1)} disabled={!selected}>
+          <div className="flex items-center gap-1">
+            <IconButton label="Vorige zet" shortcut={KEYS.prev} variant="ghost" onClick={() => go(-1)} disabled={!selected}>
               <ChevronLeft className="size-5" aria-hidden />
             </IconButton>
             <IconButton
               label="Volgende zet"
               shortcut={KEYS.next}
+              variant="ghost"
               onClick={() => go(1)}
               disabled={selected === game.plies.length - 1}
             >
               <ChevronRight className="size-5" aria-hidden />
             </IconButton>
-            <span className="text-sm font-medium">{label}</span>
+            <span className="san pl-1 text-sm">{label}</span>
           </div>
-          {isMistake && (
-            <label className="flex min-h-12 sm:min-h-11 items-center gap-2 text-sm">
-              <input type="checkbox" className="size-5" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
-              <span>
-                Pijlen tonen: <span className="text-blunder">rood = gespeeld</span>,{" "}
-                <span className="text-good">groen = beter</span>
-              </span>
-            </label>
+          {ply && ply.color === game.playerColor && (
+            <MoveFeedback ply={ply} previousEval={game.plies[ply.ply - 1]?.evalAfter} />
           )}
-          {ply && ply.color === game.playerColor ? (
-            <MoveFeedback ply={ply} previousEval={game.plies[ply.ply - 1]?.evalAfter} pending={false} />
-          ) : ply ? (
-            <Card className="px-4 py-3 text-sm">
-              Zet van de computer: <span className="san">{ply.san}</span>
-            </Card>
-          ) : null}
-          <Card className="p-3">
-            <EvalGraph plies={game.plies} playerColor={game.playerColor} selected={selected} onSelect={setSelected} />
-          </Card>
+          <EvalGraph plies={game.plies} playerColor={game.playerColor} selected={selected} onSelect={setSelected} />
         </div>
         <div className="space-y-4">
-          <Card className="space-y-2 p-1.5 sm:p-3">
+          <div className="border-y border-[var(--border)] py-1">
             <MoveList plies={game.plies} selected={selected} onSelect={setSelected} showLabels />
-            <KeyHint>
-              <Kbd>←</Kbd> <Kbd>→</Kbd> door de zetten bladeren · <Kbd>Esc</Kbd> terug naar de lijst
-            </KeyHint>
-          </Card>
+          </div>
           <CoachChat
             key={`${game.id}-${selected}`}
-            contextLabel={label}
-            intro={CHAT_INTRO_MOVE}
+            placeholder={`Vraag iets over ${label}`}
             buildFacts={(question) =>
               buildFacts({ plies: game.plies, playerColor: game.playerColor, focusPly: selected, question })
             }
-            suggestions={isMistake ? ["Waarom was dit fout?", "Wat had ik moeten spelen?"] : ["Waarom is dit een goede zet?", "Wat is het plan nu?"]}
+            suggestions={isMistake ? ["Waarom fout?", "Wat was beter?"] : ["Waarom goed?", "Wat nu?"]}
           />
         </div>
       </div>

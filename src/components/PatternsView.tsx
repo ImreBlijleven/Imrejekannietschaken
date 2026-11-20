@@ -7,15 +7,14 @@ import { ChevronRight } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { PatternStat } from "@/lib/db/repository";
 import type { MistakeRecord } from "@/lib/db/types";
-import { CATEGORY_TEXT, type Category } from "@/lib/chess/patterns";
+import { CATEGORY_TEXT, GENERIC_CATEGORIES, type Category } from "@/lib/chess/patterns";
 import { LABEL_TEXT, classify } from "@/lib/chess/evaluation";
 import { analyse } from "@/lib/client/analysis";
 import { buildFocusFact, movesMentioned, patternFacts, whatIfFact } from "@/lib/coach/facts";
 import type { CoachFacts } from "@/lib/coach/types";
-import { formatLine } from "@/lib/chess/uci";
-import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
+import { CoachChat } from "./CoachChat";
 import { LABEL_STYLE } from "./MoveList";
-import { BOARD_STYLE, Card, Skeleton, formatDate, useDelayed } from "./ui";
+import { BOARD_STYLE, Skeleton, formatDate, useDelayed } from "./ui";
 
 const MIN_GAMES = 5; // vanaf zoveel partijen zijn patronen enigszins betrouwbaar
 
@@ -23,7 +22,12 @@ async function factsForMistake(m: MistakeRecord, question: string, stats: Patter
   const c = new Chess(m.fenBefore);
   c.move(m.san);
   const [before, after] = await Promise.all([analyse(m.fenBefore, 3), analyse(c.fen(), 1)]);
-  const { label } = classify(before.lines[0].score, after.lines[0].score, m.fenBefore.split(" ")[1] as "w" | "b", false);
+  const { label } = classify(
+    before.lines[0].score,
+    after.lines[0].score,
+    m.fenBefore.split(" ")[1] as "w" | "b",
+    false,
+  );
   const whatIf = [];
   for (const san of movesMentioned(question, m.fenBefore).filter((s) => s !== m.san)) {
     const t = new Chess(m.fenBefore);
@@ -82,18 +86,14 @@ function CategoryRow({
       onClick={onSelect}
       disabled={!stat}
       aria-pressed={stat ? on : undefined}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-[var(--panel)] px-4 py-3 text-left hover:bg-[var(--bg)] disabled:hover:bg-[var(--panel)] ${
-        on ? "border-[var(--accent)] ring-1 ring-[var(--accent)]" : "border-[var(--border)]"
-      }`}
+      className={`flex min-h-14 w-full items-center gap-3 px-1 py-3 text-left ${on ? "text-[var(--accent-ink)]" : ""}`}
     >
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex items-baseline justify-between gap-2 text-sm">
           {stat ? (
             <>
               <span className="font-medium">{CATEGORY_TEXT[stat.category]}</span>
-              <span className="num shrink-0 text-[var(--muted)]">
-                {stat.count}×{stat.recent !== stat.count && <> · {stat.recent}× recent</>}
-              </span>
+              <span className="num shrink-0 text-[var(--muted)]">{stat.count}×</span>
             </>
           ) : (
             <>
@@ -102,9 +102,9 @@ function CategoryRow({
             </>
           )}
         </div>
-        <div className="h-1.5 rounded-full bg-[var(--bg)]">
+        <div className="h-1 rounded-full bg-[var(--panel)]">
           {stat && (
-            <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${(stat.count / max) * 100}%` }} />
+            <div className="h-1 rounded-full bg-[var(--accent)]" style={{ width: `${(stat.count / max) * 100}%` }} />
           )}
         </div>
       </div>
@@ -133,18 +133,25 @@ export function PatternsView() {
     repo.listMistakes({ category }).then((list) => {
       setMistakes(list);
       setSelected(list[0] ?? null);
-      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      requestAnimationFrame(() =>
+        detailRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      );
     });
   }, [repo, category]);
 
   const header = (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-bold">Jouw foutpatronen</h1>
-      <p className="text-sm text-[var(--muted)]">
-        Elke onnauwkeurigheid, fout en blunder wordt automatisch ingedeeld, met vaste regels en Stockfish (niet door de
-        AI).
-      </p>
-    </div>
+    <h1 className="flex items-baseline justify-between gap-3 text-3xl font-bold tracking-tight">
+      Patronen
+      {stats && stats.length > 0 && (
+        <span className="num text-sm font-normal tracking-normal text-[var(--muted)]">
+          {totalGames} {totalGames === 1 ? "partij" : "partijen"}
+          {totalGames < MIN_GAMES && " · nog weinig data"}
+        </span>
+      )}
+    </h1>
   );
 
   if (!stats)
@@ -152,11 +159,21 @@ export function PatternsView() {
       <div className="space-y-6">
         {header}
         {showSkeleton && (
-          <section aria-label="Categorieën laden" aria-busy="true" className="space-y-2">
-            <CategoryRow />
-            <CategoryRow />
-            <CategoryRow />
-          </section>
+          <ul
+            aria-label="Categorieën laden"
+            aria-busy="true"
+            className="divide-y divide-[var(--border)] border-y border-[var(--border)]"
+          >
+            <li>
+              <CategoryRow />
+            </li>
+            <li>
+              <CategoryRow />
+            </li>
+            <li>
+              <CategoryRow />
+            </li>
+          </ul>
         )}
       </div>
     );
@@ -165,9 +182,7 @@ export function PatternsView() {
     return (
       <div className="space-y-4">
         {header}
-        <Card className="p-5 text-sm text-[var(--muted)]">
-          Nog geen fouten opgeslagen. Speel een paar partijen; daarna zie je hier waar je de meeste punten verliest.
-        </Card>
+        <p className="text-[var(--muted)]">Nog geen fouten. Speel eerst een paar partijen.</p>
       </div>
     );
 
@@ -177,108 +192,90 @@ export function PatternsView() {
     <div className="space-y-6">
       {header}
 
-      {totalGames < MIN_GAMES && (
-        <p className="rounded-xl bg-[var(--accent-soft)] p-4 text-sm">
-          Gebaseerd op {totalGames} {totalGames === 1 ? "partij" : "partijen"}. Speel er nog {MIN_GAMES - totalGames}{" "}
-          voor een betrouwbaarder beeld.
-        </p>
-      )}
-
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-        <section aria-label="Categorieën" className="space-y-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2 lg:gap-8">
+        <ul
+          aria-label="Categorieën"
+          className="divide-y divide-[var(--border)] self-start border-y border-[var(--border)]"
+        >
           {stats.map((s) => (
-            <CategoryRow
-              key={s.category}
-              stat={s}
-              max={max}
-              on={category === s.category}
-              onSelect={() => setCategory(s.category)}
-            />
+            <li key={s.category}>
+              <CategoryRow stat={s} max={max} on={category === s.category} onSelect={() => setCategory(s.category)} />
+            </li>
           ))}
-        </section>
+        </ul>
 
-        <div ref={detailRef} className="scroll-mt-4 space-y-3">
-          {!category && (
-            <Card className="p-5 text-sm text-[var(--muted)]">Kies een categorie om voorbeelden uit je partijen te zien.</Card>
-          )}
-          {category && (
-            <>
-              <h2 className="font-semibold">{CATEGORY_TEXT[category]}: voorbeelden</h2>
-              <ul className="no-scrollbar -mx-2 flex gap-2 overflow-x-auto px-2 pb-1">
-                {mistakes.map((m) => {
-                  const on = selected?.id === m.id;
-                  const st = LABEL_STYLE[m.label];
-                  return (
-                    <li key={m.id} className="shrink-0">
-                      <button
-                        onClick={() => setSelected(m)}
-                        aria-pressed={on}
-                        className={`flex min-h-12 sm:min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm ${
-                          on ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel)]"
-                        }`}
-                      >
-                        <span className="san">{m.san}</span>
-                        <span className={`font-bold ${st.cls}`}>{st.icon}</span>
-                        <span className="text-xs text-[var(--muted)]">{formatDate(m.createdAt)}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-          {selected && (
-            <Card className="space-y-3 p-3 sm:p-4">
-              <div className="board-touch mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-lg">
-                <Chessboard
-                  options={{
-                    id: "patroonbord",
-                    position: selected.fenBefore,
-                    boardOrientation: selected.fenBefore.split(" ")[1] === "w" ? "white" : "black",
-                    allowDragging: false,
-                    arrows: mistakeArrows(selected),
-                    ...BOARD_STYLE,
-                  }}
-                />
-              </div>
-              <p className="text-xs text-[var(--muted)]">
-                <span className="text-blunder">Rood</span> = jouw zet, <span className="text-good">groen</span> = beter.
-              </p>
-              <p className="text-sm">
-                <span className={`font-semibold ${LABEL_STYLE[selected.label].cls}`}>{LABEL_TEXT[selected.label]}:</span> je
-                speelde <span className="san">{selected.san}</span>, beter was{" "}
-                <span className="san">{selected.bestSan}</span>. {selected.detail}
-              </p>
-              {selected.bestLineSan.length > 0 && (
-                <p className="text-sm text-[var(--muted)]">
-                  Beste vervolg: <span className="san text-[var(--fg)]">{formatLine(selected.fenBefore, selected.bestLineSan.slice(0, 6))}</span>
+        {category && (
+          <div ref={detailRef} className="scroll-mt-4 space-y-3">
+            <ul className="no-scrollbar -mx-2 flex gap-2 overflow-x-auto px-2">
+              {mistakes.map((m) => {
+                const on = selected?.id === m.id;
+                const st = LABEL_STYLE[m.label];
+                return (
+                  <li key={m.id} className="shrink-0">
+                    <button
+                      onClick={() => setSelected(m)}
+                      aria-pressed={on}
+                      className={`flex min-h-12 items-center gap-1.5 rounded-full px-3.5 text-sm sm:min-h-11 ${
+                        on ? "bg-[var(--accent)] text-[var(--on-accent)]" : "bg-[var(--panel)]"
+                      }`}
+                    >
+                      <span className="san">{m.san}</span>
+                      <span className={`font-bold ${on ? "" : st.cls}`}>{st.icon}</span>
+                      <span className={`num text-xs ${on ? "" : "text-[var(--muted)]"}`}>
+                        {formatDate(m.createdAt)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {selected && (
+              <>
+                <div className="board-touch aspect-square w-full max-w-[440px] overflow-hidden rounded-lg">
+                  <Chessboard
+                    options={{
+                      id: "patroonbord",
+                      position: selected.fenBefore,
+                      boardOrientation: selected.fenBefore.split(" ")[1] === "w" ? "white" : "black",
+                      allowDragging: false,
+                      arrows: mistakeArrows(selected),
+                      ...BOARD_STYLE,
+                    }}
+                  />
+                </div>
+                <p className="px-1 text-sm text-[var(--muted)]">
+                  <span className={`font-semibold ${LABEL_STYLE[selected.label].cls}`}>
+                    {LABEL_TEXT[selected.label]}
+                  </span>{" "}
+                  · beter: <span className="san text-[var(--fg)]">{selected.bestSan}</span>
+                  {selected.detail && !GENERIC_CATEGORIES.includes(selected.category) && <> · {selected.detail}</>}
                 </p>
-              )}
-              <CoachChat
-                key={selected.id}
-                contextLabel={`${selected.san} · ${CATEGORY_TEXT[selected.category]}`}
-                intro={CHAT_INTRO_MOVE}
-                buildFacts={(q) => factsForMistake(selected, q, stats)}
-                suggestions={["Waarom was dit fout?", "Hoe herken ik dit de volgende keer?"]}
-              />
-            </Card>
-          )}
-        </div>
+                <CoachChat
+                  key={selected.id}
+                  placeholder={`Vraag iets over ${selected.san}`}
+                  buildFacts={(q) => factsForMistake(selected, q, stats)}
+                  suggestions={["Waarom fout?", "Hoe herken ik dit?"]}
+                />
+              </>
+            )}
+          </div>
+        )}
       </div>
 
-      <CoachChat
-        key="algemeen"
-        contextLabel="Al je patronen"
-        intro="Vraag wat je zwakste punten zijn of waar je deze week op kunt oefenen. De coach gebruikt de tellingen hierboven."
-        buildFacts={async () => ({
-          playerColor: "wit",
-          pgn: "",
-          currentFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-          whatIf: [],
-          patterns: patternFacts(stats),
-        })}
-        suggestions={["Wat zijn mijn grootste zwakke punten?", "Waar moet ik deze week op oefenen?"]}
-      />
+      {!category && (
+        <CoachChat
+          key="algemeen"
+          placeholder="Vraag iets over je patronen"
+          buildFacts={async () => ({
+            playerColor: "wit",
+            pgn: "",
+            currentFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            whatIf: [],
+            patterns: patternFacts(stats),
+          })}
+          suggestions={["Wat zijn mijn zwakke punten?", "Waar moet ik op oefenen?"]}
+        />
+      )}
     </div>
   );
 }

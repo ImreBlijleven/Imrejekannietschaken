@@ -26,11 +26,11 @@ export function EvalGraph({
   const marks = plies.filter((p) => p.color === playerColor && (p.label === "blunder" || p.label === "fout"));
 
   return (
-    <figure className="space-y-1.5">
+    <figure>
       <div className="relative">
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="h-28 w-full cursor-pointer rounded-lg bg-[var(--bg)]"
+          className="h-24 w-full cursor-pointer rounded-lg bg-[var(--panel)]"
           preserveAspectRatio="none"
           role="img"
           aria-label="Grafiek van je winstkans per zet"
@@ -60,26 +60,15 @@ export function EvalGraph({
           <span
             key={p.ply}
             aria-hidden
-            className={`pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--bg)] ${
+            className={`pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--panel)] ${
               p.label === "blunder" ? "bg-[var(--blunder)]" : "bg-[var(--mistake)]"
             }`}
             style={{ left: `${(x(p.ply + 1) / W) * 100}%`, top: `${(y(pts[p.ply + 1]) / H) * 100}%` }}
           />
         ))}
-        <span className="pointer-events-none absolute left-2 top-1.5 text-[11px] text-[var(--muted)]">Jij beter</span>
-        <span className="pointer-events-none absolute bottom-1.5 left-2 text-[11px] text-[var(--muted)]">
-          Tegenstander beter
-        </span>
+        <span className="pointer-events-none absolute left-2 top-1 text-[11px] text-[var(--muted)]">jij</span>
+        <span className="pointer-events-none absolute bottom-1 left-2 text-[11px] text-[var(--muted)]">tegenstander</span>
       </div>
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-[var(--blunder)]" aria-hidden /> Blunder
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-[var(--mistake)]" aria-hidden /> Fout
-        </span>
-        <span>Tik op de grafiek om naar die zet te gaan.</span>
-      </figcaption>
     </figure>
   );
 }

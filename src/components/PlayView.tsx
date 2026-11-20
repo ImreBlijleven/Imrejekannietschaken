@@ -24,11 +24,11 @@ import {
 import { analyse, buildFacts } from "@/lib/client/analysis";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { uciToMove } from "@/lib/chess/uci";
-import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
+import { CoachChat } from "./CoachChat";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Button, Card, IconButton, KEYS, Kbd, KeyHint, useKeyShortcuts } from "./ui";
+import { BOARD_STYLE, Button, IconButton, KEYS, useKeyShortcuts } from "./ui";
 
 const ELO_KEY = "schaakcoach.elo";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -44,12 +44,17 @@ function Segmented<T extends string>({
   label,
 }: {
   value: T;
-  options: { value: T; label: string; hint?: string }[];
+  options: { value: T; label: string }[];
   onChange: (v: T) => void;
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={`grid gap-2 ${options.some((o) => o.hint) ? "sm:grid-cols-2" : "grid-cols-3"}`}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="grid gap-1 rounded-xl bg-[var(--panel)] p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -58,14 +63,11 @@ function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`min-h-12 sm:min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
-              on
-                ? "border-[var(--accent)] bg-[var(--accent-soft)] font-semibold"
-                : "border-[var(--border)] hover:bg-[var(--bg)]"
-            } ${o.hint ? "" : "text-center"}`}
+            className={`min-h-12 rounded-lg px-2 text-sm transition-colors sm:min-h-11 ${
+              on ? "bg-[var(--accent)] font-semibold text-[var(--on-accent)]" : "text-[var(--muted)] hover:text-[var(--fg)]"
+            }`}
           >
             {o.label}
-            {o.hint && <span className="mt-0.5 block text-xs font-normal text-[var(--muted)]">{o.hint}</span>}
           </button>
         );
       })}
@@ -109,95 +111,82 @@ function Setup({
   const [mode, setMode] = useState<GameMode>("training");
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-8 pt-2 sm:pt-6">
       {ongoing && (
-        <Card className="flex items-center justify-between gap-3 p-4">
-          <div className="text-sm">
-            <p className="font-semibold">Partij in uitvoering</p>
-            <p className="text-[var(--muted)]">
-              {strengthName(ongoing)} · {Math.ceil(ongoing.plies.length / 2)} zetten gespeeld
-            </p>
-          </div>
-          <Button variant="primary" onClick={onResume}>
-            Verder spelen
-          </Button>
-        </Card>
-      )}
-      <Card className="space-y-6 p-5 sm:p-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Nieuwe partij</h1>
-          <p className="text-sm text-[var(--muted)]">
-            Speel tegen Stockfish. Na elke zet zie je hoe goed hij was, en de coach legt uit waarom.
-          </p>
-        </div>
-
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-sm font-medium">Jij speelt met</legend>
-          <Segmented
-            label="Kleur"
-            value={color}
-            onChange={setColor}
-            options={[
-              { value: "w", label: "Wit" },
-              { value: "b", label: "Zwart" },
-              { value: "random", label: "Willekeurig" },
-            ]}
-          />
-        </fieldset>
-
-        <fieldset className="space-y-2">
-          <legend className="mb-2 flex w-full items-baseline justify-between text-sm font-medium">
-            <span>Sterkte computer</span>
-            <span className="num text-base font-semibold">Elo {elo}</span>
-          </legend>
-          <div className="flex items-center gap-2">
-            <IconButton label="50 Elo lager" onClick={() => setElo(Math.max(ELO_MIN, elo - 50))} disabled={elo <= ELO_MIN}>
-              <Minus className="size-5" aria-hidden />
-            </IconButton>
-            <input
-              type="range"
-              min={ELO_MIN}
-              max={ELO_MAX}
-              step={50}
-              value={elo}
-              onChange={(e) => setElo(Number(e.target.value))}
-              aria-label="Elo van de computer"
-              aria-valuetext={`Elo ${elo}`}
-              className="h-12 w-full sm:h-11"
-            />
-            <IconButton label="50 Elo hoger" onClick={() => setElo(Math.min(ELO_MAX, elo + 50))} disabled={elo >= ELO_MAX}>
-              <Plus className="size-5" aria-hidden />
-            </IconButton>
-          </div>
-          <p className="text-xs leading-relaxed text-[var(--muted)]">
-            {elo < STOCKFISH_ELO_MIN
-              ? "Onder 1320 is de sterkte een schatting: Stockfish speelt dan af en toe een willekeurige zet."
-              : "Stockfish' eigen Elo-stand. Gemeten tegen andere schaakprogramma's, dus niet precies gelijk aan je online rating."}
-          </p>
-        </fieldset>
-
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-sm font-medium">Modus</legend>
-          <Segmented
-            label="Modus"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: "training", label: "Training", hint: "Beoordeling na elke zet, terugnemen mag" },
-              { value: "partij", label: "Partij", hint: "Zonder hulp, analyse na afloop" },
-            ]}
-          />
-        </fieldset>
-
-        <Button
-          variant="primary"
-          block
-          className="min-h-12 text-base"
-          onClick={() => onStart(color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color, elo, mode)}
+        <button
+          onClick={onResume}
+          className="flex min-h-14 w-full items-center justify-between gap-3 rounded-xl bg-[var(--accent-soft)] px-4 text-left"
         >
-          Start partij
-        </Button>
-      </Card>
+          <span>
+            <span className="block font-semibold">Verder spelen</span>
+            <span className="num block text-sm text-[var(--muted)]">
+              {strengthName(ongoing)} · zet {Math.ceil(ongoing.plies.length / 2)}
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0" aria-hidden />
+        </button>
+      )}
+
+      <h1 className="text-3xl font-bold tracking-tight">Nieuwe partij</h1>
+
+      <Segmented
+        label="Kleur"
+        value={color}
+        onChange={setColor}
+        options={[
+          { value: "w", label: "Wit" },
+          { value: "b", label: "Zwart" },
+          { value: "random", label: "Willekeurig" },
+        ]}
+      />
+
+      <div className="space-y-2">
+        <p className="flex items-baseline justify-between">
+          <span className="text-sm text-[var(--muted)]">Tegenstander</span>
+          <span className="num text-lg font-semibold">
+            {elo}
+            {elo < STOCKFISH_ELO_MIN && <span className="text-sm font-normal text-[var(--muted)]"> ≈</span>}
+          </span>
+        </p>
+        <div className="flex items-center gap-2">
+          <IconButton label="50 Elo lager" onClick={() => setElo(Math.max(ELO_MIN, elo - 50))} disabled={elo <= ELO_MIN}>
+            <Minus className="size-5" aria-hidden />
+          </IconButton>
+          <input
+            type="range"
+            min={ELO_MIN}
+            max={ELO_MAX}
+            step={50}
+            value={elo}
+            onChange={(e) => setElo(Number(e.target.value))}
+            aria-label="Elo van de computer"
+            aria-valuetext={`Elo ${elo}`}
+            className="h-12 w-full sm:h-11"
+          />
+          <IconButton label="50 Elo hoger" onClick={() => setElo(Math.min(ELO_MAX, elo + 50))} disabled={elo >= ELO_MAX}>
+            <Plus className="size-5" aria-hidden />
+          </IconButton>
+        </div>
+      </div>
+
+      <Segmented
+        label="Modus"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: "training", label: "Met hulp" },
+          { value: "partij", label: "Zonder hulp" },
+        ]}
+      />
+
+      <Button
+        variant="primary"
+        block
+        className="min-h-14 text-base"
+        onClick={() => onStart(color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color, elo, mode)}
+      >
+        Start
+      </Button>
     </div>
   );
 }
@@ -219,68 +208,50 @@ function Summary({
   const count = (l: string) => mine.filter((p) => p.label === l).length;
   const top = biggestMistakes(game, 3);
   const o = outcome(game);
+  const errors = count("blunder") + count("fout") + count("onnauwkeurig");
   return (
-    <Card className="space-y-4 p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className={`text-xl font-bold ${o === "gewonnen" ? "text-good" : ""}`}>{resultText(game)}</h1>
-          <p className="text-sm text-[var(--muted)]">
-            {strengthName(game)} · {Math.ceil(game.plies.length / 2)} zetten
-          </p>
-        </div>
+    <section className="space-y-4 pb-2" aria-label="Uitslag">
+      <div className="flex items-end justify-between gap-3">
+        <h1 className={`text-3xl font-bold tracking-tight ${o === "gewonnen" ? "text-good" : ""}`}>{resultText(game)}</h1>
         {game.accuracy !== undefined && (
-          <div className="text-right">
-            <p className="num text-2xl font-bold leading-none">{game.accuracy.toFixed(0)}%</p>
-            <p className="text-xs text-[var(--muted)]">nauwkeurigheid</p>
-          </div>
+          <p className="num text-3xl font-bold" title="Nauwkeurigheid">
+            {game.accuracy.toFixed(0)}%
+          </p>
         )}
       </div>
-      <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        {count("blunder") + count("fout") + count("onnauwkeurig") === 0 ? (
-          <span className="text-good">✓ Geen fouten gemaakt</span>
+      <p className="num flex flex-wrap gap-x-4 text-sm">
+        {errors === 0 ? (
+          <span className="text-good">Foutloos</span>
         ) : (
           <>
-            {count("blunder") > 0 && (
-              <span className="text-blunder">
-                ?? {count("blunder")} {count("blunder") === 1 ? "blunder" : "blunders"}
-              </span>
-            )}
-            {count("fout") > 0 && (
-              <span className="text-mistake">
-                ? {count("fout")} {count("fout") === 1 ? "fout" : "fouten"}
-              </span>
-            )}
-            {count("onnauwkeurig") > 0 && (
-              <span className="text-inaccuracy">?! {count("onnauwkeurig")} onnauwkeurig</span>
-            )}
+            {count("blunder") > 0 && <span className="text-blunder">{count("blunder")} ??</span>}
+            {count("fout") > 0 && <span className="text-mistake">{count("fout")} ?</span>}
+            {count("onnauwkeurig") > 0 && <span className="text-inaccuracy">{count("onnauwkeurig")} ?!</span>}
           </>
         )}
       </p>
       <EvalGraph plies={game.plies} playerColor={game.playerColor} selected={selected} onSelect={onSelect} />
       {top.length > 0 && (
-        <div>
-          <h2 className="mb-1 text-sm font-semibold">Leerpunten uit deze partij</h2>
-          <ul className="divide-y divide-[var(--border)]">
-            {top.map((m) => (
-              <li key={m.ply}>
-                <button
-                  onClick={() => onSelect(m.ply)}
-                  className="flex min-h-12 w-full items-center gap-3 text-left text-sm hover:bg-[var(--bg)]"
-                >
-                  <span className={`w-6 shrink-0 font-bold ${LABEL_STYLE[m.label!].cls}`}>{LABEL_STYLE[m.label!].icon}</span>
-                  <span className="san">{plyName(m)}</span>
-                  <span className="min-w-0 flex-1 truncate text-[var(--muted)]">{CATEGORY_TEXT[m.category!]}</span>
-                  <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+          {top.map((m) => (
+            <li key={m.ply}>
+              <button
+                onClick={() => onSelect(m.ply)}
+                className="flex min-h-12 w-full items-center gap-3 px-1 text-left text-sm"
+              >
+                <span className={`w-6 shrink-0 font-bold ${LABEL_STYLE[m.label!].cls}`}>{LABEL_STYLE[m.label!].icon}</span>
+                <span className="san">{plyName(m)}</span>
+                <span className="min-w-0 flex-1 truncate text-[var(--muted)]">{CATEGORY_TEXT[m.category!]}</span>
+                <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
-      <Button variant="primary" block onClick={onNew}>
+      <Button variant="primary" block className="min-h-14 text-base" onClick={onNew}>
         Nieuwe partij
       </Button>
-    </Card>
+    </section>
   );
 }
 
@@ -295,7 +266,6 @@ export function PlayView() {
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState<"" | "beoordelen" | "computer">("");
   const [waitForContinue, setWaitForContinue] = useState(false);
-  const [showBest, setShowBest] = useState(true);
   const [moveFrom, setMoveFrom] = useState<string | null>(null); // tik-om-te-zetten: gekozen stuk
 
   useEffect(() => {
@@ -507,7 +477,7 @@ export function PlayView() {
 
   // Bord: live stelling, of bij een geselecteerde fout de stelling vóór de zet met pijlen.
   const focusIsMistake = !!focusPly?.label && !["beste", "goed"].includes(focusPly.label) && !!focusPly.bestUci;
-  const showMistakeArrows = focusIsMistake && showBest;
+  const showMistakeArrows = focusIsMistake;
   const arrows: Arrow[] = [];
   let boardFen = game.plies.at(-1)?.fenAfter ?? START_FEN;
   const squareStyles: Record<string, React.CSSProperties> = {};
@@ -535,20 +505,20 @@ export function PlayView() {
     }
   }
 
-  // Status onder het bord: altijd duidelijk wie aan zet is.
+  // Status onder het bord: kort, altijd duidelijk wie aan zet is.
   const status = finished
     ? { text: resultText(game), spin: false }
     : reviewing
-      ? { text: `Je bekijkt ${plyName(focusPly!)}`, spin: false }
+      ? { text: plyName(focusPly!), spin: false }
       : busy === "beoordelen"
-        ? { text: "Stockfish beoordeelt je zet…", spin: true }
+        ? { text: "Stockfish rekent…", spin: true }
         : busy === "computer"
-          ? { text: "Computer denkt na…", spin: true }
+          ? { text: "Computer denkt…", spin: true }
           : waitForContinue
-            ? { text: "Pauze: neem terug of ga door", spin: false }
+            ? { text: "Pauze", spin: false }
             : playerToMove
-              ? { text: "Jij bent aan zet", spin: false }
-              : { text: "Computer is aan zet", spin: false };
+              ? { text: "Jij aan zet", spin: false }
+              : { text: "Computer aan zet", spin: false };
 
   const pauseActions = waitForContinue ? (
     <>
@@ -561,30 +531,26 @@ export function PlayView() {
     </>
   ) : undefined;
 
-  // Beoordelingskaart: geselecteerde zet van jou, anders je laatste zet.
-  const opponentFocus = focusPly && focusPly.color !== game.playerColor ? focusPly : null;
-  const feedbackPly = focusPly ? (opponentFocus ? null : focusPly) : lastPlayerPly;
+  // Beoordeling: geselecteerde zet van jou, anders je laatste zet.
+  const feedbackPly = focusPly
+    ? focusPly.color === game.playerColor
+      ? focusPly
+      : null
+    : finished
+      ? null
+      : lastPlayerPly;
   const prevEval = feedbackPly ? game.plies[feedbackPly.ply - 1]?.evalAfter : undefined;
-  const feedback = opponentFocus ? (
-    <Card className="px-4 py-3 text-sm">
-      Zet van de computer: <span className="san">{opponentFocus.san}</span>
-    </Card>
-  ) : (
-    <MoveFeedback
-      ply={feedbackPly}
-      previousEval={prevEval}
-      pending={busy === "beoordelen" && !focusPly}
-      actions={reviewing ? undefined : pauseActions}
-    />
+  const feedback = (
+    <MoveFeedback ply={feedbackPly} previousEval={prevEval} actions={reviewing ? undefined : pauseActions} />
   );
 
   const chatAllowed = game.mode === "training" || finished;
   const chatPly = focusPly ?? (lastPlayerPly?.label ? lastPlayerPly : null);
-  const chatLabel = chatPly ? plyName(chatPly) : "Huidige stelling";
+  const isBad = !!chatPly?.label && !["beste", "goed"].includes(chatPly.label);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:gap-6 lg:grid-cols-[minmax(0,560px)_1fr]">
-      <div className="space-y-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,560px)_1fr] lg:gap-8">
+      <div className="space-y-4">
         {finished && (
           <Summary
             game={game}
@@ -600,10 +566,6 @@ export function PlayView() {
         )}
 
         <div ref={boardRef} className="scroll-mt-2 space-y-2">
-          <p className="px-1 text-xs text-[var(--muted)]">
-            Jij: {game.playerColor === "w" ? "wit" : "zwart"} · {strengthName(game)} ·{" "}
-            {game.mode === "training" ? "Training" : "Partij"}
-          </p>
           <div className="board-touch aspect-square w-full max-w-[560px] overflow-hidden rounded-lg">
             <Chessboard
               options={{
@@ -621,10 +583,11 @@ export function PlayView() {
               }}
             />
           </div>
-          <div className="flex min-h-12 sm:min-h-11 items-center gap-2">
+          <div className="flex items-center gap-1">
             <IconButton
               label="Vorige zet"
               shortcut={KEYS.prev}
+              variant="ghost"
               onClick={() => step(-1)}
               disabled={!game.plies.length || selected === 0}
             >
@@ -633,79 +596,49 @@ export function PlayView() {
             <IconButton
               label="Volgende zet"
               shortcut={KEYS.next}
+              variant="ghost"
               onClick={() => step(1)}
               disabled={selected === null || selected === game.plies.length - 1}
             >
               <ChevronRight className="size-5" aria-hidden />
             </IconButton>
-            <p className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium" role="status" aria-live="polite">
+            <p className="flex min-w-0 flex-1 items-center gap-2 pl-1 text-sm" role="status" aria-live="polite">
               {status.spin && <LoaderCircle className="size-4 shrink-0 animate-spin text-[var(--muted)]" aria-hidden />}
               <span className="truncate">{status.text}</span>
             </p>
             {reviewing && !finished && (
-              <Button
-                variant="primary"
-                onClick={() => selectPly(null)}
-                title="Terug naar de partij (Esc)"
-                aria-keyshortcuts="Escape"
-              >
+              <Button variant="primary" onClick={() => selectPly(null)} title="Terug naar de partij (Esc)" aria-keyshortcuts="Escape">
                 Live
               </Button>
             )}
+            {!finished && !reviewing && (
+              <>
+                {game.mode === "training" && !waitForContinue && (
+                  <IconButton label="Zet terugnemen" variant="ghost" onClick={takeBack} disabled={!!busy || !lastPlayerPly}>
+                    <Undo2 className="size-5" aria-hidden />
+                  </IconButton>
+                )}
+                <IconButton label="Opgeven" variant="ghost" onClick={resign} className="text-[var(--muted)]">
+                  <Flag className="size-5" aria-hidden />
+                </IconButton>
+              </>
+            )}
           </div>
-          {focusIsMistake && (
-            <label className="flex min-h-12 sm:min-h-11 items-center gap-2 text-sm">
-              <input type="checkbox" className="size-5" checked={showBest} onChange={(e) => setShowBest(e.target.checked)} />
-              <span>
-                Pijlen tonen: <span className="text-blunder">rood = gespeeld</span>,{" "}
-                <span className="text-good">groen = beter</span>
-              </span>
-            </label>
-          )}
         </div>
 
         {/* Telefoon: beoordeling direct onder het bord, met de pauzeknoppen erin. */}
-        {showLabels && <div className="lg:hidden">{feedback}</div>}
-
-        {!finished && !reviewing && (
-          <div className="grid grid-cols-2 gap-2">
-            {game.mode === "training" && !waitForContinue && (
-              <Button onClick={takeBack} disabled={!!busy || !lastPlayerPly}>
-                <Undo2 className="size-4" aria-hidden /> Terugnemen
-              </Button>
-            )}
-            <Button
-              variant="danger"
-              onClick={resign}
-              className={game.mode === "training" && !waitForContinue ? "" : "col-span-2"}
-            >
-              <Flag className="size-4" aria-hidden /> Opgeven
-            </Button>
-          </div>
-        )}
+        {showLabels && feedbackPly?.label && <div className="lg:hidden">{feedback}</div>}
       </div>
 
-      <div className="space-y-3 sm:space-y-4">
-        {showLabels && <div className="hidden lg:block">{feedback}</div>}
-        <Card className="space-y-2 p-1.5 sm:p-3">
+      <div className="space-y-4">
+        {showLabels && feedbackPly?.label && <div className="hidden lg:block">{feedback}</div>}
+        <div className="border-y border-[var(--border)] py-1">
           <MoveList plies={game.plies} selected={selected} onSelect={selectPly} showLabels={showLabels} />
-          {game.plies.length > 0 && (
-            <KeyHint>
-              <Kbd>←</Kbd> <Kbd>→</Kbd> door de zetten bladeren
-              {!finished && (
-                <>
-                  {" "}
-                  · <Kbd>Esc</Kbd> terug naar de partij
-                </>
-              )}
-            </KeyHint>
-          )}
-        </Card>
-        {chatAllowed ? (
+        </div>
+        {chatAllowed && (
           <CoachChat
             key={`${game.id}-${chatPly?.ply ?? "live"}`}
-            contextLabel={chatLabel}
-            intro={chatPly ? CHAT_INTRO_MOVE : "Vraag naar het plan of waar je op moet letten in deze stelling."}
+            placeholder={chatPly ? `Vraag iets over ${plyName(chatPly)}` : "Vraag de coach"}
             buildFacts={(question) =>
               buildFacts({
                 plies: game.plies,
@@ -716,16 +649,12 @@ export function PlayView() {
             }
             suggestions={
               chatPly
-                ? chatPly.label && !["beste", "goed"].includes(chatPly.label)
-                  ? ["Waarom was dit fout?", "Wat had ik moeten spelen?"]
-                  : ["Waarom is dit een goede zet?", "Wat is het plan nu?"]
-                : ["Wat is het plan in deze stelling?", "Waar moet ik op letten?"]
+                ? isBad
+                  ? ["Waarom fout?", "Wat was beter?"]
+                  : ["Waarom goed?", "Wat nu?"]
+                : ["Wat is het plan?"]
             }
           />
-        ) : (
-          <Card className="p-4 text-sm text-[var(--muted)]">
-            In de partijmodus is de coach beschikbaar zodra de partij is afgelopen.
-          </Card>
         )}
       </div>
     </div>

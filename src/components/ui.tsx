@@ -59,11 +59,6 @@ export function IconButton({
   );
 }
 
-export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
-  return (
-    <div className={`rounded-xl border border-[var(--border)] bg-[var(--panel)] ${className}`}>{children}</div>
-  );
-}
 
 const DATE_FMT = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", year: "numeric" });
 const DATETIME_FMT = new Intl.DateTimeFormat("nl-NL", {
@@ -145,15 +140,4 @@ export function useKeyShortcuts(onKey: (key: string) => boolean | void) {
   }, []);
 }
 
-/** Zichtbare hint, alleen op apparaten met muis/trackpad (daar is meestal een toetsenbord). */
-export function KeyHint({ children }: { children: ReactNode }) {
-  return <p className="hidden text-xs text-[var(--muted)] [@media(pointer:fine)]:block">{children}</p>;
-}
 
-export function Kbd({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="rounded border border-[var(--border)] bg-[var(--panel)] px-1.5 py-0.5 font-sans text-[11px] font-medium text-[var(--fg)]">
-      {children}
-    </kbd>
-  );
-}

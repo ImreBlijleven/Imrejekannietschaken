@@ -79,6 +79,9 @@ function balanceAlong(fen: string, uciMoves: string[], maxPlies: number, color: 
 const PIECE_NAME: Record<string, string> = { p: "pion", n: "paard", b: "loper", r: "toren", q: "dame", k: "koning" };
 
 /** Materiaal in gewone woorden: "de dame", "een toren", "een stuk", "2 pionnen". */
+/** Categorieën zonder concrete tactiek: daar heeft een uitlegzin geen meerwaarde. */
+export const GENERIC_CATEGORIES: Category[] = ["opening", "middenspel_positioneel", "eindspel"];
+
 export function materialText(points: number): string {
   if (points >= 9) return "de dame";
   if (points >= 5) return "een toren";
@@ -236,12 +239,12 @@ export function detectPattern(
 
   // 7. Anders: per fase
   if (phase === "opening")
-    return { category: "opening", detail: "Geen directe tactiek; een minder goede openingszet.", phase };
+    return { category: "opening", detail: "", phase };
   if (phase === "eindspel")
-    return { category: "eindspel", detail: "Een onnauwkeurigheid in het eindspel.", phase };
+    return { category: "eindspel", detail: "", phase };
   return {
     category: "middenspel_positioneel",
-    detail: "Geen directe tactiek; de stelling werd positioneel slechter.",
+    detail: "",
     phase,
   };
 }
