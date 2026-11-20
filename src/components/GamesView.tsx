@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { GameRecord } from "@/lib/db/types";
-import { LEVELS, resultText } from "@/lib/client/game-flow";
+import { resultText, strengthName } from "@/lib/client/game-flow";
 import { GameReview } from "./GameReview";
 
 export function GamesView() {
@@ -28,7 +28,7 @@ export function GamesView() {
             <div>
               <div className="font-medium">
                 {new Date(g.createdAt).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" })} ·{" "}
-                {g.playerColor === "w" ? "wit" : "zwart"} · {LEVELS.find((l) => l.value === g.level)?.name}
+                {g.playerColor === "w" ? "wit" : "zwart"} · {strengthName(g)}
               </div>
               <div className="text-[var(--muted)]">
                 {g.status === "bezig" ? "Bezig" : resultText(g)} · {Math.ceil(g.plies.length / 2)} zetten

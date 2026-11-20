@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Chessboard } from "react-chessboard";
 import type { Arrow } from "react-chessboard";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { GameMode, GameRecord, PlyRecord } from "@/lib/db/types";
 import {
-  LEVELS,
+  ELO_MAX,
+  ELO_MIN,
+  STOCKFISH_ELO_MIN,
+  strengthName,
   applyMove,
   chessFromPlies,
   evaluatePlayerPly,
@@ -24,15 +27,38 @@ import { EvalGraph } from "./EvalGraph";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { uciToMove } from "@/lib/chess/uci";
 
+const ELO_KEY = "schaakcoach.elo";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 function Setup({ onStart, ongoing, onResume }: {
-  onStart: (c: "w" | "b", level: number, mode: GameMode) => void;
+  onStart: (c: "w" | "b", elo: number, mode: GameMode) => void;
   ongoing: GameRecord | null;
   onResume: () => void;
 }) {
   const [color, setColor] = useState<"w" | "b" | "random">("w");
-  const [level, setLevel] = useState(3);
+  // Laatst gekozen Elo uit localStorage (op de server: standaardwaarde, geen hydration-verschil).
+  const storedElo = useSyncExternalStore(
+    () => () => {},
+    () => {
+      try {
+        const v = Number(localStorage.getItem(ELO_KEY));
+        return v >= ELO_MIN && v <= ELO_MAX ? v : 1200;
+      } catch {
+        return 1200;
+      }
+    },
+    () => 1200,
+  );
+  const [chosenElo, setEloState] = useState<number | null>(null);
+  const elo = chosenElo ?? storedElo;
+  const setElo = (v: number) => {
+    setEloState(v);
+    try {
+      localStorage.setItem(ELO_KEY, String(v));
+    } catch {
+      /* negeren */
+    }
+  };
   const [mode, setMode] = useState<GameMode>("training");
   const opt = (active: boolean) =>
     `rounded-lg border px-3 py-2 text-sm ${active ? "border-[var(--accent)] bg-[var(--accent)]/10 font-semibold" : "border-[var(--border)]"}`;
@@ -59,14 +85,43 @@ function Setup({ onStart, ongoing, onResume }: {
         </div>
       </fieldset>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium mb-1">Niveau computer</legend>
-        <div className="flex flex-wrap gap-2">
-          {LEVELS.map((l) => (
-            <button key={l.value} onClick={() => setLevel(l.value)} className={opt(level === l.value)}>
-              {l.name}
-            </button>
-          ))}
+        <legend className="text-sm font-medium mb-1 flex w-full justify-between">
+          <span>Sterkte computer</span>
+          <span className="font-mono font-semibold">Elo {elo}</span>
+        </legend>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="50 Elo lager"
+            onClick={() => setElo(Math.max(ELO_MIN, elo - 50))}
+            className="rounded-lg border border-[var(--border)] w-11 h-11 text-xl shrink-0"
+          >
+            −
+          </button>
+          <input
+            type="range"
+            min={ELO_MIN}
+            max={ELO_MAX}
+            step={50}
+            value={elo}
+            onChange={(e) => setElo(Number(e.target.value))}
+            aria-label="Elo van de computer"
+            className="w-full h-11 accent-[var(--accent)]"
+          />
+          <button
+            type="button"
+            aria-label="50 Elo hoger"
+            onClick={() => setElo(Math.min(ELO_MAX, elo + 50))}
+            className="rounded-lg border border-[var(--border)] w-11 h-11 text-xl shrink-0"
+          >
+            +
+          </button>
         </div>
+        <p className="text-xs text-[var(--muted)]">
+          {elo < STOCKFISH_ELO_MIN
+            ? "Onder 1320 is de sterkte een schatting: Stockfish speelt dan af en toe een willekeurige zet."
+            : "Stockfish' eigen Elo-stand. Gekalibreerd tegen andere engines, dus niet precies gelijk aan je online rating."}
+        </p>
       </fieldset>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium mb-1">Modus</legend>
@@ -82,7 +137,7 @@ function Setup({ onStart, ongoing, onResume }: {
         </div>
       </fieldset>
       <button
-        onClick={() => onStart(color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color, level, mode)}
+        onClick={() => onStart(color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color, elo, mode)}
         className="w-full rounded-lg bg-[var(--accent)] text-white py-3 font-semibold"
       >
         Start partij
@@ -119,7 +174,7 @@ export function PlayView() {
     const chess = chessFromPlies(g.plies);
     if (chess.turn() === g.playerColor) return;
     setBusy("computer");
-    const mv = await opponentMove(chess.fen(), g.level);
+    const mv = await opponentMove(chess.fen(), g.elo ?? 1320 + g.level * 90);
     if (gameRef.current !== g) return; // partij is intussen gewisseld
     const ply = mv ? applyMove(g, mv) : null;
     if (ply) {
@@ -159,12 +214,12 @@ export function PlayView() {
     [commit, runOpponent],
   );
 
-  async function start(color: "w" | "b", level: number, mode: GameMode) {
+  async function start(color: "w" | "b", elo: number, mode: GameMode) {
     if (ongoing) {
       // Een openstaande partij wordt afgesloten als je een nieuwe begint.
       await repo.saveGame({ ...ongoing, status: "afgelopen", result: "*" });
     }
-    const g = newGame(color, level, mode);
+    const g = newGame(color, elo, mode);
     gameRef.current = g;
     setSelected(null);
     setWaitForContinue(false);
@@ -308,7 +363,7 @@ export function PlayView() {
         <div className="flex items-center justify-between text-xs sm:text-sm px-1">
           <span>
             {game.playerColor === "w" ? "Jij: wit" : "Jij: zwart"} ·{" "}
-            {LEVELS.find((l) => l.value === game.level)?.name} · {game.mode === "training" ? "Training" : "Partij"}
+            {strengthName(game)} · {game.mode === "training" ? "Training" : "Partij"}
           </span>
           <span className="text-[var(--muted)]">
             {busy === "computer" ? "Computer denkt na…" : busy === "beoordelen" ? "Beoordelen…" : ""}

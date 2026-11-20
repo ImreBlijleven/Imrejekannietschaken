@@ -37,7 +37,8 @@ export interface PlyRecord {
 
 export interface GameRecord extends SyncFields {
   playerColor: "w" | "b";
-  level: number; // Stockfish Skill Level 0..20
+  level: number; // (oud) Stockfish Skill Level 0..20, voor partijen van vóór de Elo-slider
+  elo?: number; // sterkte van de computer in Elo
   mode: GameMode;
   status: GameStatus;
   result?: string; // "1-0", "0-1", "1/2-1/2", "*"

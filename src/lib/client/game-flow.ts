@@ -10,16 +10,28 @@ import { newId, now } from "../db/repository";
 import { SCHEMA_VERSION, type GameMode, type GameRecord, type PlyRecord } from "../db/types";
 import { analyse } from "./analysis";
 
-export const LEVELS = [
-  { value: 0, name: "Beginner" },
-  { value: 3, name: "Makkelijk" },
-  { value: 6, name: "Gemiddeld" },
-  { value: 10, name: "Gevorderd" },
-  { value: 15, name: "Sterk" },
-  { value: 20, name: "Maximaal" },
-];
+// Stockfish ondersteunt UCI_Elo van 1320 t/m 3190 (UCI-optie "UCI_Elo").
+// https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html
+export const ELO_MIN = 400;
+export const ELO_MAX = 3000;
+export const STOCKFISH_ELO_MIN = 1320;
 
-export function newGame(playerColor: "w" | "b", level: number, mode: GameMode): GameRecord {
+/** Oude partijen hadden een niveau (Skill Level) in plaats van Elo. */
+const OLD_LEVEL_NAMES: Record<number, string> = {
+  0: "Beginner",
+  3: "Makkelijk",
+  6: "Gemiddeld",
+  10: "Gevorderd",
+  15: "Sterk",
+  20: "Maximaal",
+};
+
+export function strengthName(game: Pick<GameRecord, "elo" | "level">): string {
+  if (game.elo !== undefined) return `Elo ${game.elo}${game.elo < STOCKFISH_ELO_MIN ? " (geschat)" : ""}`;
+  return OLD_LEVEL_NAMES[game.level] ?? `Niveau ${game.level}`;
+}
+
+export function newGame(playerColor: "w" | "b", elo: number, mode: GameMode): GameRecord {
   const ts = now();
   return {
     id: newId(),
@@ -27,7 +39,8 @@ export function newGame(playerColor: "w" | "b", level: number, mode: GameMode): 
     updatedAt: ts,
     schemaVersion: SCHEMA_VERSION,
     playerColor,
-    level,
+    level: 20,
+    elo,
     mode,
     status: "bezig",
     result: "*",
@@ -115,16 +128,40 @@ export async function evaluatePlayerPly(game: GameRecord, ply: PlyRecord): Promi
   return updated;
 }
 
-let configuredLevel: number | null = null;
+let configuredElo: number | null = null;
 
-/** Laat de computer een zet kiezen op het ingestelde niveau. */
-export async function opponentMove(fen: string, level: number): Promise<{ from: string; to: string; promotion?: string } | null> {
+/**
+ * Laat de computer een zet kiezen op de gekozen Elo.
+ * - Vanaf 1320: Stockfish' eigen sterktebeperking (UCI_LimitStrength + UCI_Elo).
+ * - Onder 1320: Stockfish' zwakste stand, plus af en toe een willekeurige legale zet.
+ *   Dit is een eigen benadering en niet gekalibreerd.
+ */
+export async function opponentMove(
+  fen: string,
+  elo: number,
+): Promise<{ from: string; to: string; promotion?: string } | null> {
   const engine = getOpponentEngine();
-  if (configuredLevel !== level) {
-    await engine.setOption("Skill Level", level);
-    configuredLevel = level;
+  const target = Math.max(STOCKFISH_ELO_MIN, Math.min(3190, elo));
+  if (configuredElo !== target) {
+    await engine.setOption("UCI_LimitStrength", "true");
+    await engine.setOption("UCI_Elo", target);
+    configuredElo = target;
   }
-  const movetime = level <= 6 ? 300 : level <= 15 ? 700 : 1200;
+
+  if (elo < STOCKFISH_ELO_MIN) {
+    // Kans op een willekeurige zet: 0% bij 1320, oplopend tot 60% bij 400.
+    const randomChance = (0.6 * (STOCKFISH_ELO_MIN - elo)) / (STOCKFISH_ELO_MIN - ELO_MIN);
+    if (Math.random() < randomChance) {
+      const moves = new Chess(fen).moves({ verbose: true });
+      if (moves.length) {
+        const m = moves[Math.floor(Math.random() * moves.length)];
+        await new Promise((r) => setTimeout(r, 400)); // even "nadenken"
+        return { from: m.from, to: m.to, promotion: m.promotion };
+      }
+    }
+  }
+
+  const movetime = elo < 1800 ? 400 : elo < 2400 ? 800 : 1200;
   const res = await engine.analyse(fen, { movetime });
   return res.bestMove ? uciToMove(res.bestMove) : null;
 }

@@ -6,7 +6,7 @@ je vaak maakt.
 
 ## Functies
 
-- **Spelen tegen Stockfish** (6 niveaus), als wit of zwart.
+- **Spelen tegen Stockfish** met een Elo-slider (400–3000), als wit of zwart.
 - **Trainingsmodus**: beoordeling na elke zet (Beste / Goed / Onnauwkeurig / Fout / Blunder), pauze na een fout
   en zet terugnemen. **Partijmodus**: zonder hulp spelen, analyse na afloop.
 - **Coach-chat** per zet. Noem je een zet in je vraag ("wat als Nf3?"), dan analyseert Stockfish die eerst.
@@ -106,6 +106,10 @@ scripts/          Stockfish kopiëren, testset
 ## Bekende beperkingen
 
 - Promotie gaat altijd naar een dame.
+- Elo vanaf 1320 gebruikt Stockfish' eigen sterktestand (`UCI_LimitStrength`/`UCI_Elo`). Die is gekalibreerd
+  tegen andere engines ([Stockfish-docs](https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html))
+  en niet tegen ratings op Lichess of Chess.com. Hij is ook bedoeld voor langere bedenktijd dan de app gebruikt.
+  Onder 1320 is het een eigen, niet gekalibreerde benadering: af en toe een willekeurige zet.
 - De browser gebruikt de *lite*-versie van Stockfish (≈2 MB). Die is veel sterker dan elke mens, maar zwakker dan
   de volledige engine.
 - De patroonregels zijn eenvoudig. Een fout die alleen een pion kost, of een tactiek die pas na meer dan 8 halve
