@@ -2,13 +2,29 @@
 
 @custom-variant dark (@media (prefers-color-scheme: dark));
 
+/* Kleuren: alle tekstparen gecontroleerd op WCAG AA (≥ 4.5:1). */
 :root {
   --bg: #f6f5f2;
   --panel: #ffffff;
   --fg: #1c1b19;
-  --muted: #6b6a66;
+  --muted: #63625e;
   --border: #e3e1dc;
   --accent: #2f6f4f;
+  --on-accent: #ffffff;
+  --accent-soft: #e8f0eb;
+  --accent-ink: #2f6f4f; /* accentkleur als tekst */
+
+  /* Zet-labels */
+  --good: #047857;
+  --inaccuracy: #b45309;
+  --mistake: #c2410c;
+  --blunder: #b91c1c;
+  --danger: #b91c1c;
+  --warning: #b45309;
+
+  /* Bord */
+  --sq-light: #f0d9b5;
+  --sq-dark: #b58863;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,33 +34,95 @@
     --fg: #ecebe8;
     --muted: #a3a29e;
     --border: #34332f;
-    --accent: #4f9d74;
+    --accent: #5aa97f;
+    --on-accent: #0e2418;
+    --accent-soft: #233229;
+    --accent-ink: #7cc49c;
+
+    --good: #34d399;
+    --inaccuracy: #fbbf24;
+    --mistake: #fb923c;
+    --blunder: #f87171;
+    --danger: #f87171;
+    --warning: #fbbf24;
   }
+}
+
+@theme inline {
+  --color-good: var(--good);
+  --color-inaccuracy: var(--inaccuracy);
+  --color-mistake: var(--mistake);
+  --color-blunder: var(--blunder);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  accent-color: var(--accent);
+  scrollbar-color: var(--border) transparent;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  caret-color: var(--accent);
 }
 
-/* Telefoon: geen blauwe tik-flits, en het bord mag niet meescrollen tijdens slepen. */
-html {
-  -webkit-tap-highlight-color: transparent;
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
 }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Schaaknotatie en getallen: gelijke cijferbreedte, geen monospace-kostuum. */
+.san {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Telefoon: het bord mag niet meescrollen tijdens slepen. */
 .board-touch {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
+
 /* iOS zoomt in op invoervelden met tekst kleiner dan 16px. */
 input,
 textarea,
 select {
   font-size: 16px;
 }
+
+/* Horizontale zettenstrook zonder zichtbare scrollbalk. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (min-width: 640px) {
   main {
     padding-bottom: 1.5rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
   }
 }

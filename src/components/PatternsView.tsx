@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import { Chessboard, type Arrow } from "react-chessboard";
+import { ChevronRight } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { PatternStat } from "@/lib/db/repository";
 import type { MistakeRecord } from "@/lib/db/types";
 import { CATEGORY_TEXT, type Category } from "@/lib/chess/patterns";
-import { LABEL_TEXT } from "@/lib/chess/evaluation";
+import { LABEL_TEXT, classify } from "@/lib/chess/evaluation";
 import { analyse } from "@/lib/client/analysis";
 import { buildFocusFact, movesMentioned, patternFacts, whatIfFact } from "@/lib/coach/facts";
-import { classify } from "@/lib/chess/evaluation";
 import type { CoachFacts } from "@/lib/coach/types";
-import { CoachChat } from "./CoachChat";
 import { formatLine } from "@/lib/chess/uci";
+import { CHAT_INTRO_MOVE, CoachChat } from "./CoachChat";
+import { LABEL_STYLE } from "./MoveList";
+import { BOARD_STYLE, Card, formatDate } from "./ui";
+
+const MIN_GAMES = 5; // vanaf zoveel partijen zijn patronen enigszins betrouwbaar
 
 async function factsForMistake(m: MistakeRecord, question: string, stats: PatternStat[]): Promise<CoachFacts> {
   const c = new Chess(m.fenBefore);
@@ -44,8 +48,26 @@ async function factsForMistake(m: MistakeRecord, question: string, stats: Patter
   };
 }
 
+/** Pijlen voor gespeelde (rood) en betere (groen) zet. */
+function mistakeArrows(m: MistakeRecord): Arrow[] {
+  const arrows: Arrow[] = [];
+  for (const [san, color] of [
+    [m.san, "rgba(185,28,28,0.85)"],
+    [m.bestSan, "rgba(4,120,87,0.9)"],
+  ] as const) {
+    try {
+      const mv = new Chess(m.fenBefore).move(san);
+      arrows.push({ startSquare: mv.from, endSquare: mv.to, color });
+    } catch {
+      /* onbekende zet: geen pijl */
+    }
+  }
+  return arrows;
+}
+
 export function PatternsView() {
   const repo = useMemo(() => getRepository(), []);
+  const detailRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<PatternStat[] | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
@@ -54,22 +76,37 @@ export function PatternsView() {
 
   useEffect(() => {
     repo.patternStats().then(setStats);
-    repo.listGames().then((g) => setTotalGames(g.length));
+    repo.listGames().then((g) => setTotalGames(g.filter((x) => x.status === "afgelopen").length));
   }, [repo]);
 
   useEffect(() => {
-    if (category) repo.listMistakes({ category }).then(setMistakes);
+    if (!category) return;
+    repo.listMistakes({ category }).then((list) => {
+      setMistakes(list);
+      setSelected(list[0] ?? null);
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    });
   }, [repo, category]);
 
   if (!stats) return <p className="text-[var(--muted)]">Laden…</p>;
+
+  const header = (
+    <div className="space-y-1">
+      <h1 className="text-2xl font-bold">Jouw foutpatronen</h1>
+      <p className="text-sm text-[var(--muted)]">
+        Elke onnauwkeurigheid, fout en blunder wordt automatisch ingedeeld, met vaste regels en Stockfish (niet door de
+        AI).
+      </p>
+    </div>
+  );
+
   if (stats.length === 0)
     return (
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--panel)] p-6">
-        <h1 className="text-2xl font-bold mb-2">Jouw foutpatronen</h1>
-        <p className="text-[var(--muted)]">
-          Nog geen fouten opgeslagen. Speel een paar partijen; elke onnauwkeurigheid, fout of blunder wordt hier
-          automatisch ingedeeld.
-        </p>
+      <div className="space-y-4">
+        {header}
+        <Card className="p-5 text-sm text-[var(--muted)]">
+          Nog geen fouten opgeslagen. Speel een paar partijen; daarna zie je hier waar je de meeste punten verliest.
+        </Card>
       </div>
     );
 
@@ -77,77 +114,68 @@ export function PatternsView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Jouw foutpatronen</h1>
-        <p className="text-sm text-[var(--muted)]">
-          Gebaseerd op {totalGames} partij{totalGames === 1 ? "" : "en"}. De indeling gebeurt door vaste regels met
-          Stockfish, niet door het taalmodel.
+      {header}
+
+      {totalGames < MIN_GAMES && (
+        <p className="rounded-xl bg-[var(--accent-soft)] p-4 text-sm">
+          Gebaseerd op {totalGames} {totalGames === 1 ? "partij" : "partijen"}. Speel er nog {MIN_GAMES - totalGames}{" "}
+          voor een betrouwbaarder beeld.
         </p>
-      </div>
+      )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-        <div className="space-y-2">
-          {stats.map((s) => (
-            <button
-              key={s.category}
-              onClick={() => {
-                setCategory(s.category);
-                setSelected(null);
-              }}
-              className={`w-full text-left rounded-lg border p-3 ${
-                category === s.category ? "border-[var(--accent)]" : "border-[var(--border)]"
-              } bg-[var(--panel)]`}
-            >
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{CATEGORY_TEXT[s.category]}</span>
-                <span className="text-[var(--muted)]">
-                  {s.count}× · {s.recent}× in laatste 10 partijen
-                </span>
-              </div>
-              <div className="mt-2 h-2 rounded bg-[var(--bg)]">
-                <div className="h-2 rounded bg-[var(--accent)]" style={{ width: `${(s.count / max) * 100}%` }} />
-              </div>
-            </button>
-          ))}
-          <div className="pt-4">
-            <CoachChat
-              key="algemeen"
-              contextLabel="Al je patronen"
-              buildFacts={async () => ({
-                playerColor: "wit",
-                pgn: "",
-                currentFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-                whatIf: [],
-                patterns: patternFacts(stats),
-              })}
-              suggestions={["Wat zijn mijn grootste zwakke punten?", "Waar moet ik deze week op oefenen?"]}
-            />
-          </div>
-        </div>
+        <section aria-label="Categorieën" className="space-y-2">
+          {stats.map((s) => {
+            const on = category === s.category;
+            return (
+              <button
+                key={s.category}
+                onClick={() => setCategory(s.category)}
+                aria-pressed={on}
+                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-[var(--panel)] px-4 py-3 text-left hover:bg-[var(--bg)] ${
+                  on ? "border-[var(--accent)] ring-1 ring-[var(--accent)]" : "border-[var(--border)]"
+                }`}
+              >
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="font-medium">{CATEGORY_TEXT[s.category]}</span>
+                    <span className="num shrink-0 text-[var(--muted)]">
+                      {s.count}×{s.recent !== s.count && <> · {s.recent}× recent</>}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-[var(--bg)]">
+                    <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${(s.count / max) * 100}%` }} />
+                  </div>
+                </div>
+                <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+              </button>
+            );
+          })}
+        </section>
 
-        <div className="space-y-3">
+        <div ref={detailRef} className="scroll-mt-4 space-y-3">
+          {!category && (
+            <Card className="p-5 text-sm text-[var(--muted)]">Kies een categorie om voorbeelden uit je partijen te zien.</Card>
+          )}
           {category && (
             <>
               <h2 className="font-semibold">{CATEGORY_TEXT[category]}: voorbeelden</h2>
-              <ul className="space-y-1 text-sm max-h-56 overflow-y-auto">
+              <ul className="no-scrollbar -mx-2 flex gap-2 overflow-x-auto px-2 pb-1">
                 {mistakes.map((m) => {
-                  const no = m.fenBefore.split(" ")[5];
-                  const dots = m.fenBefore.split(" ")[1] === "w" ? "." : "...";
+                  const on = selected?.id === m.id;
+                  const st = LABEL_STYLE[m.label];
                   return (
-                    <li key={m.id}>
+                    <li key={m.id} className="shrink-0">
                       <button
                         onClick={() => setSelected(m)}
-                        className={`w-full text-left rounded px-2 py-1 hover:bg-[var(--panel)] ${
-                          selected?.id === m.id ? "bg-[var(--panel)] ring-1 ring-[var(--accent)]" : ""
+                        aria-pressed={on}
+                        className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm ${
+                          on ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel)]"
                         }`}
                       >
-                        <span className="font-mono">
-                          {no}
-                          {dots} {m.san}
-                        </span>{" "}
-                        <span className="text-[var(--muted)]">
-                          ({LABEL_TEXT[m.label]}, beter: {m.bestSan}) · {new Date(m.createdAt).toLocaleDateString("nl-NL")}
-                        </span>
+                        <span className="san">{m.san}</span>
+                        <span className={`font-bold ${st.cls}`}>{st.icon}</span>
+                        <span className="text-xs text-[var(--muted)]">{formatDate(m.createdAt)}</span>
                       </button>
                     </li>
                   );
@@ -156,36 +184,57 @@ export function PatternsView() {
             </>
           )}
           {selected && (
-            <div className="space-y-3">
-              <div className="board-touch w-full max-w-[360px] aspect-square">
+            <Card className="space-y-3 p-3 sm:p-4">
+              <div className="board-touch mx-auto aspect-square w-full max-w-[400px] overflow-hidden rounded-lg">
                 <Chessboard
                   options={{
                     id: "patroonbord",
                     position: selected.fenBefore,
                     boardOrientation: selected.fenBefore.split(" ")[1] === "w" ? "white" : "black",
                     allowDragging: false,
+                    arrows: mistakeArrows(selected),
+                    ...BOARD_STYLE,
                   }}
                 />
               </div>
+              <p className="text-xs text-[var(--muted)]">
+                <span className="text-blunder">Rood</span> = jouw zet, <span className="text-good">groen</span> = beter.
+              </p>
               <p className="text-sm">
-                Je speelde <span className="font-mono font-semibold">{selected.san}</span>. {selected.detail}
+                <span className={`font-semibold ${LABEL_STYLE[selected.label].cls}`}>{LABEL_TEXT[selected.label]}:</span> je
+                speelde <span className="san">{selected.san}</span>, beter was{" "}
+                <span className="san">{selected.bestSan}</span>. {selected.detail}
               </p>
               {selected.bestLineSan.length > 0 && (
-                <p className="text-sm">
-                  Beste variant:{" "}
-                  <span className="font-mono">{formatLine(selected.fenBefore, selected.bestLineSan.slice(0, 6))}</span>
+                <p className="text-sm text-[var(--muted)]">
+                  Beste vervolg: <span className="san text-[var(--fg)]">{formatLine(selected.fenBefore, selected.bestLineSan.slice(0, 6))}</span>
                 </p>
               )}
               <CoachChat
                 key={selected.id}
-                contextLabel={`${selected.san} (${CATEGORY_TEXT[selected.category]})`}
+                contextLabel={`${selected.san} · ${CATEGORY_TEXT[selected.category]}`}
+                intro={CHAT_INTRO_MOVE}
                 buildFacts={(q) => factsForMistake(selected, q, stats)}
                 suggestions={["Waarom was dit fout?", "Hoe herken ik dit de volgende keer?"]}
               />
-            </div>
+            </Card>
           )}
         </div>
       </div>
+
+      <CoachChat
+        key="algemeen"
+        contextLabel="Al je patronen"
+        intro="Vraag wat je zwakste punten zijn of waar je deze week op kunt oefenen. De coach gebruikt de tellingen hierboven."
+        buildFacts={async () => ({
+          playerColor: "wit",
+          pgn: "",
+          currentFen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          whatIf: [],
+          patterns: patternFacts(stats),
+        })}
+        suggestions={["Wat zijn mijn grootste zwakke punten?", "Waar moet ik deze week op oefenen?"]}
+      />
     </div>
   );
 }

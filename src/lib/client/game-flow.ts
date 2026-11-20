@@ -93,6 +93,7 @@ export async function evaluatePlayerPly(game: GameRecord, ply: PlyRecord): Promi
 
   const updated: PlyRecord = {
     ...ply,
+    evalBefore: sBefore,
     evalAfter: sAfter,
     bestUci,
     bestSan,
@@ -170,8 +171,13 @@ export async function opponentMove(
 export function finishIfOver(game: GameRecord): boolean {
   const chess = chessFromPlies(game.plies);
   if (!chess.isGameOver()) return false;
-  if (chess.isCheckmate()) game.result = chess.turn() === "w" ? "0-1" : "1-0";
-  else game.result = "1/2-1/2";
+  if (chess.isCheckmate()) {
+    game.result = chess.turn() === "w" ? "0-1" : "1-0";
+    game.endReason = "mat";
+  } else {
+    game.result = "1/2-1/2";
+    game.endReason = "remise";
+  }
   finalize(game);
   return true;
 }
@@ -182,10 +188,28 @@ export function finalize(game: GameRecord) {
   game.accuracy = acc.length ? acc.reduce((s, p) => s + (p.accuracy ?? 0), 0) / acc.length : undefined;
 }
 
-export function resultText(game: GameRecord): string {
-  if (game.result === "1/2-1/2") return "Remise";
-  if (game.result === "*" || !game.result) return "Opgegeven / afgebroken";
+export type Outcome = "gewonnen" | "verloren" | "remise" | "afgebroken";
+
+export function outcome(game: GameRecord): Outcome {
+  if (game.result === "1/2-1/2") return "remise";
+  if (!game.result || game.result === "*") return "afgebroken";
   const whiteWon = game.result === "1-0";
-  const playerWon = (game.playerColor === "w") === whiteWon;
-  return playerWon ? "Je hebt gewonnen! 🎉" : "Je hebt verloren";
+  return (game.playerColor === "w") === whiteWon ? "gewonnen" : "verloren";
+}
+
+export function resultText(game: GameRecord): string {
+  const o = outcome(game);
+  if (o === "remise") return "Remise";
+  if (o === "afgebroken") return "Afgebroken";
+  if (o === "gewonnen") return game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
+  if (game.endReason === "opgegeven") return "Opgegeven";
+  return game.endReason === "mat" ? "Verloren door mat" : "Verloren";
+}
+
+/** Eerste paar halve zetten van de speler gesorteerd op verlies in winstkans. */
+export function biggestMistakes(game: GameRecord, n = 3) {
+  return game.plies
+    .filter((p) => p.color === game.playerColor && p.category)
+    .sort((a, b) => (b.drop ?? 0) - (a.drop ?? 0))
+    .slice(0, n);
 }

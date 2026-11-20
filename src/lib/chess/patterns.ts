@@ -76,6 +76,16 @@ function balanceAlong(fen: string, uciMoves: string[], maxPlies: number, color: 
   return Math.min(...balances.slice(-2));
 }
 
+const PIECE_NAME: Record<string, string> = { p: "pion", n: "paard", b: "loper", r: "toren", q: "dame", k: "koning" };
+
+/** Materiaal in gewone woorden: "de dame", "een toren", "een stuk", "2 pionnen". */
+export function materialText(points: number): string {
+  if (points >= 9) return "de dame";
+  if (points >= 5) return "een toren";
+  if (points >= 3) return "een stuk";
+  return points === 1 ? "een pion" : `${points} pionnen`;
+}
+
 export interface PatternResult {
   category: Category;
   detail: string; // korte, feitelijke uitleg (Nederlands)
@@ -148,11 +158,16 @@ export function detectPattern(
       // 3. Stuk laten hangen: tegenstander slaat direct en wint materiaal
       if (reply.captured) {
         const movedPieceTaken = reply.to === played.to;
+        const name = PIECE_NAME[reply.captured] ?? "stuk";
+        // Noem het geslagen stuk alleen als dat ook echt het verlies is; anders de netto winst.
+        const isTheLoss = VALUE[reply.captured] >= lossAfter - 1;
         return {
           category: "stuk_hangend",
-          detail: movedPieceTaken
-            ? `Het stuk dat je naar ${played.to} zette kan geslagen worden (${reply.san}).`
-            : `Na ${played.san} kan de tegenstander materiaal winnen met ${reply.san}.`,
+          detail: !isTheLoss
+            ? `Na ${played.san} wint de tegenstander ${materialText(lossAfter)}, te beginnen met ${reply.san}.`
+            : movedPieceTaken
+              ? `Je ${name} op ${played.to} stond onbeschermd: de tegenstander slaat hem met ${reply.san}.`
+              : `Na ${played.san} slaat de tegenstander je ${name} met ${reply.san}.`,
           phase,
         };
       }
@@ -176,7 +191,7 @@ export function detectPattern(
       }
       return {
         category: "tactiek_toegelaten",
-        detail: `Na ${played.san} wint de tegenstander materiaal, te beginnen met ${reply.san}.`,
+        detail: `Na ${played.san} wint de tegenstander ${materialText(lossAfter)}, te beginnen met ${reply.san}.`,
         phase,
       };
     }
@@ -192,7 +207,7 @@ export function detectPattern(
     if (gainBest >= 2 && bestBefore.pv[0] !== playedUci && lossAfter >= 0) {
       return {
         category: "tactiek_gemist",
-        detail: `De beste zet won materiaal (ongeveer ${gainBest} pion${gainBest === 1 ? "" : "nen"}).`,
+        detail: `Met de beste zet had je ${materialText(gainBest)} kunnen winnen.`,
         phase,
       };
     }

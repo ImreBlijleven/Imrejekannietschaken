@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ChartColumn, ChessKnight, History, Settings, type LucideIcon } from "lucide-react";
 
-const NAV = [
-  { href: "/", label: "Spelen", icon: "♞" },
-  { href: "/patronen", label: "Patronen", icon: "📊" },
-  { href: "/partijen", label: "Partijen", icon: "📜" },
-  { href: "/instellingen", label: "Instellingen", icon: "⚙️" },
+const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
+  { href: "/", label: "Spelen", Icon: ChessKnight },
+  { href: "/patronen", label: "Patronen", Icon: ChartColumn },
+  { href: "/partijen", label: "Partijen", Icon: History },
+  { href: "/instellingen", label: "Instellingen", Icon: Settings },
 ];
 
 /** Bovenbalk op grote schermen, tabbalk onderaan op de telefoon (bereikbaar met je duim). */
@@ -17,35 +18,47 @@ export function NavBar() {
   return (
     <>
       <header className="hidden sm:block border-b border-[var(--border)] bg-[var(--panel)]">
-        <nav className="mx-auto max-w-6xl flex items-center gap-1 px-4 py-3">
-          <span className="font-bold mr-4">♞ Schaakcoach</span>
-          {NAV.map((n) => (
+        <nav className="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2" aria-label="Hoofdmenu">
+          <span className="mr-4 flex items-center gap-2 font-bold">
+            <ChessKnight className="size-5 text-[var(--accent-ink)]" aria-hidden />
+            Schaakcoach
+          </span>
+          {NAV.map(({ href, label, Icon }) => (
             <Link
-              key={n.href}
-              href={n.href}
-              className={`rounded-lg px-3 py-1.5 text-sm hover:bg-[var(--bg)] ${active(n.href) ? "font-semibold text-[var(--accent)]" : ""}`}
+              key={href}
+              href={href}
+              aria-current={active(href) ? "page" : undefined}
+              className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm hover:bg-[var(--bg)] ${
+                active(href) ? "font-semibold text-[var(--accent-ink)]" : ""
+              }`}
             >
-              {n.label}
+              <Icon className="size-4" aria-hidden />
+              {label}
             </Link>
           ))}
         </nav>
       </header>
       <nav
-        className="sm:hidden fixed bottom-0 inset-x-0 z-20 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel)]"
+        aria-label="Hoofdmenu"
+        className="sm:hidden fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {NAV.map((n) => (
-          <Link
-            key={n.href}
-            href={n.href}
-            className={`flex flex-col items-center gap-0.5 py-2 text-[11px] ${active(n.href) ? "text-[var(--accent)] font-semibold" : "text-[var(--muted)]"}`}
-          >
-            <span className="text-xl leading-none" aria-hidden>
-              {n.icon}
-            </span>
-            {n.label}
-          </Link>
-        ))}
+        {NAV.map(({ href, label, Icon }) => {
+          const on = active(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={on ? "page" : undefined}
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] ${
+                on ? "font-semibold text-[var(--accent-ink)]" : "text-[var(--muted)]"
+              }`}
+            >
+              <Icon className="size-[22px]" strokeWidth={on ? 2.25 : 1.75} aria-hidden />
+              {label}
+            </Link>
+          );
+        })}
       </nav>
     </>
   );

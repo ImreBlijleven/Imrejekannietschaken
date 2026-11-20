@@ -25,6 +25,7 @@ export interface PlyRecord {
   color: "w" | "b";
   fenBefore: string;
   fenAfter: string;
+  evalBefore?: Score; // vanuit wit (alleen bij zetten van de speler)
   evalAfter: Score; // vanuit wit
   bestUci?: string; // beste zet in fenBefore (alleen voor zetten van de speler)
   bestSan?: string;
@@ -42,6 +43,7 @@ export interface GameRecord extends SyncFields {
   mode: GameMode;
   status: GameStatus;
   result?: string; // "1-0", "0-1", "1/2-1/2", "*"
+  endReason?: "mat" | "remise" | "opgegeven" | "afgebroken";
   pgn: string;
   plies: PlyRecord[];
   accuracy?: number;

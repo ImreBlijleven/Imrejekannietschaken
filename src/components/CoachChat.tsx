@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { LoaderCircle, SendHorizontal, TriangleAlert } from "lucide-react";
 import type { ChatMessage, CoachFacts, CoachResponse } from "@/lib/coach/types";
 import { loadSettings } from "@/lib/client/settings";
 
 interface Props {
-  contextLabel: string; // bv. "Zet 12... Nf6" of "Huidige stelling"
+  contextLabel: string; // bv. "Zet 12... Nf6" of "Al je patronen"
+  intro: string; // korte uitleg die past bij deze context
   buildFacts: (question: string) => Promise<CoachFacts>;
   suggestions?: string[];
 }
@@ -17,7 +19,8 @@ interface UiMessage extends ChatMessage {
 }
 
 /** Chat met de coach. Geef een `key` mee per context zodat het gesprek reset bij een andere zet. */
-export function CoachChat({ contextLabel, buildFacts, suggestions = [] }: Props) {
+export function CoachChat({ contextLabel, intro, buildFacts, suggestions = [] }: Props) {
+  const inputId = useId();
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +34,7 @@ export function CoachChat({ contextLabel, buildFacts, suggestions = [] }: Props)
     setInput("");
     setBusy(true);
     try {
-      setStatus("Stockfish analyseert…");
+      setStatus("Stockfish rekent…");
       const facts = await buildFacts(question);
       setStatus("Coach denkt na…");
       const res = await fetch("/api/coach", {
@@ -43,23 +46,27 @@ export function CoachChat({ contextLabel, buildFacts, suggestions = [] }: Props)
         }),
       });
       const data = (await res.json()) as CoachResponse;
-      if (data.error) {
-        setMessages([...history, { role: "assistant", content: data.error, error: true }]);
-      } else {
-        setMessages([
-          ...history,
-          {
-            role: "assistant",
-            content: data.answer,
-            warnings: data.warnings,
-            meta: data.provider ? `${data.provider} · ${data.model}` : undefined,
-          },
-        ]);
-      }
+      setMessages([
+        ...history,
+        data.error
+          ? { role: "assistant", content: data.error, error: true }
+          : {
+              role: "assistant",
+              content: data.answer,
+              warnings: data.warnings,
+              meta: data.provider ? `${data.provider} · ${data.model}` : undefined,
+            },
+      ]);
     } catch (e) {
       setMessages([
         ...history,
-        { role: "assistant", content: `Er ging iets mis: ${e instanceof Error ? e.message : e}`, error: true },
+        {
+          role: "assistant",
+          content: `De coach is niet bereikbaar. Controleer je internetverbinding en probeer het opnieuw. (${
+            e instanceof Error ? e.message : e
+          })`,
+          error: true,
+        },
       ]);
     } finally {
       setBusy(false);
@@ -68,47 +75,53 @@ export function CoachChat({ contextLabel, buildFacts, suggestions = [] }: Props)
   }
 
   return (
-    <div className="flex flex-col rounded-xl border border-[var(--border)] bg-[var(--panel)] min-h-[240px] sm:min-h-[320px]">
-      <div className="px-4 py-2 border-b border-[var(--border)] text-sm">
-        <span className="font-semibold">Coach</span>
-        <span className="text-[var(--muted)]"> · {contextLabel}</span>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[55vh] sm:max-h-[420px]">
-        {messages.length === 0 && (
-          <p className="text-sm text-[var(--muted)]">
-            Stel een vraag over deze zet. Noem een zet (bv. &ldquo;wat als Nf3?&rdquo;) en Stockfish analyseert hem
-            eerst. Zetten staan in Engelse notatie (N = paard, B = loper, R = toren, Q = dame).
-          </p>
-        )}
+    <section
+      aria-label={`Coach: ${contextLabel}`}
+      className="flex flex-col rounded-xl border border-[var(--border)] bg-[var(--panel)]"
+    >
+      <header className="flex items-baseline gap-2 border-b border-[var(--border)] px-4 py-3 text-sm">
+        <h2 className="font-semibold">Coach</h2>
+        <span className="truncate text-[var(--muted)]">{contextLabel}</span>
+      </header>
+      <div className="max-h-[55vh] space-y-3 overflow-y-auto p-4 sm:max-h-[420px]" aria-live="polite">
+        {messages.length === 0 && <p className="text-sm text-[var(--muted)]">{intro}</p>}
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-right" : ""}>
             <div
-              className={`inline-block text-left whitespace-pre-wrap rounded-lg px-3 py-2 text-sm max-w-[95%] ${
+              title={m.meta}
+              className={`inline-block max-w-[92%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-left text-[15px] leading-relaxed ${
                 m.role === "user"
-                  ? "bg-[var(--accent)] text-white"
+                  ? "rounded-br-md bg-[var(--accent)] text-[var(--on-accent)]"
                   : m.error
-                    ? "bg-red-500/10 text-red-700 dark:text-red-300"
-                    : "bg-[var(--bg)]"
+                    ? "rounded-bl-md border border-[var(--danger)] text-[var(--danger)]"
+                    : "rounded-bl-md bg-[var(--bg)]"
               }`}
             >
               {m.content}
             </div>
             {m.warnings && m.warnings.length > 0 && (
-              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">⚠️ {m.warnings.join(" · ")}</p>
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--warning)]">
+                <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+                {m.warnings.join(" · ")}
+              </p>
             )}
-            {m.meta && <p className="mt-1 text-[10px] text-[var(--muted)]">{m.meta}</p>}
           </div>
         ))}
-        {busy && <p className="text-sm text-[var(--muted)] animate-pulse">{status}</p>}
+        {busy && (
+          <p className="flex items-center gap-2 text-sm text-[var(--muted)]" role="status">
+            <LoaderCircle className="size-4 animate-spin" aria-hidden />
+            {status}
+          </p>
+        )}
       </div>
       {suggestions.length > 0 && messages.length === 0 && (
-        <div className="px-4 pb-2 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 px-4 pb-3">
           {suggestions.map((s) => (
             <button
               key={s}
               onClick={() => send(s)}
               disabled={busy}
-              className="text-sm sm:text-xs rounded-full border border-[var(--border)] px-3 py-1.5 sm:py-1 hover:bg-[var(--bg)]"
+              className="min-h-11 rounded-full border border-[var(--border)] px-4 text-sm hover:bg-[var(--bg)] disabled:opacity-45"
             >
               {s}
             </button>
@@ -116,25 +129,34 @@ export function CoachChat({ contextLabel, buildFacts, suggestions = [] }: Props)
         </div>
       )}
       <form
-        className="flex gap-2 p-3 border-t border-[var(--border)]"
+        className="flex gap-2 border-t border-[var(--border)] p-3"
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
         }}
       >
+        <label htmlFor={inputId} className="sr-only">
+          Vraag aan de coach
+        </label>
         <input
+          id={inputId}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Vraag de coach…"
-          className="flex-1 min-w-0 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2"
+          enterKeyHint="send"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3"
         />
         <button
           disabled={busy || !input.trim()}
-          className="rounded-lg bg-[var(--accent)] text-white px-4 py-2 text-sm disabled:opacity-50"
+          aria-label="Verstuur vraag"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--on-accent)] disabled:opacity-45"
         >
-          Vraag
+          <SendHorizontal className="size-5" aria-hidden />
         </button>
       </form>
-    </div>
+    </section>
   );
 }
+
+export const CHAT_INTRO_MOVE =
+  "Vraag waarom deze zet goed of slecht was. Noem je een andere zet (bv. “wat als Nf3?”), dan rekent Stockfish die eerst door.";
