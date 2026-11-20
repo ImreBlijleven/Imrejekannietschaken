@@ -9,10 +9,14 @@ import type { CoachFacts } from "./types";
 const SAN_RE =
   /(?<![A-Za-z0-9])(?:O-O-O|O-O|0-0-0|0-0|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](?:=?[QRBN])?)[+#]?(?![A-Za-z0-9])/g;
 
-const EVAL_RE = /(?<![\w.])([+-]\d{1,2}[.,]\d{1,2})(?![\d])/g;
+const EVAL_RE = /(?<![\w.])([+-]?\d{1,2}[.,]\d{1,2})(?![\d])/g;
+const PERCENT_RE = /\d{1,3}\s?%/g;
 
 function normalizeSan(s: string): string {
-  return s.replace(/0/g, "O").replace(/[+#!?]/g, "").replace("=", "");
+  return s
+    .replace(/0/g, "O")
+    .replace(/[+#!?]/g, "")
+    .replace("=", "");
 }
 
 function legalSans(fen: string): string[] {
@@ -51,17 +55,6 @@ export function allowedMoves(f: CoachFacts): Set<string> {
   return new Set(all.map(normalizeSan));
 }
 
-function allowedEvals(f: CoachFacts): number[] {
-  const vals: string[] = [];
-  if (f.focus) {
-    vals.push(f.focus.evalBefore, f.focus.evalAfter);
-    f.focus.bestMoves.forEach((b) => vals.push(b.eval));
-    if (f.focus.refutation) vals.push(f.focus.refutation.eval);
-  }
-  f.whatIf.forEach((w) => vals.push(w.eval));
-  return vals.filter((v) => !v.startsWith("#")).map((v) => parseFloat(v));
-}
-
 export interface ValidationResult {
   ok: boolean;
   unknownMoves: string[];
@@ -74,13 +67,10 @@ export function validateAnswer(answer: string, f: CoachFacts): ValidationResult 
   for (const m of answer.matchAll(SAN_RE)) {
     if (!allowed.has(normalizeSan(m[0]))) unknownMoves.add(m[0]);
   }
-  const evals = allowedEvals(f);
+  // Cijfers horen niet in het antwoord: de speler ziet scores en winstkansen al in de app.
   const unknownEvals = new Set<string>();
-  for (const m of answer.matchAll(EVAL_RE)) {
-    const v = parseFloat(m[1].replace(",", "."));
-    // Afronden mag (bv. +1.25 → +1.3)
-    if (!evals.some((e) => Math.abs(e - v) <= 0.3)) unknownEvals.add(m[1]);
-  }
+  for (const m of answer.matchAll(EVAL_RE)) unknownEvals.add(m[1]);
+  for (const m of answer.matchAll(PERCENT_RE)) unknownEvals.add(m[0]);
   return {
     ok: unknownMoves.size === 0 && unknownEvals.size === 0,
     unknownMoves: [...unknownMoves],

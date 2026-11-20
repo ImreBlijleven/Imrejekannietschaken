@@ -50,7 +50,7 @@ export async function askCoach(
         // Eén correctiepoging met concrete feedback.
         const problems = [
           check.unknownMoves.length ? `zetten die niet in FEITEN staan: ${check.unknownMoves.join(", ")}` : "",
-          check.unknownEvals.length ? `evaluaties die niet in FEITEN staan: ${check.unknownEvals.join(", ")}` : "",
+          check.unknownEvals.length ? `cijfers (scores/percentages): ${check.unknownEvals.join(", ")}` : "",
         ]
           .filter(Boolean)
           .join("; ");
@@ -60,7 +60,7 @@ export async function askCoach(
             { role: "assistant", content: answer },
             {
               role: "user",
-              content: `Je antwoord bevat ${problems}. Herschrijf het antwoord zonder deze zetten/getallen; gebruik alleen wat in FEITEN staat. Geef alleen het verbeterde antwoord, kort en zonder opmaak.`,
+              content: `Je antwoord bevat ${problems}. Herschrijf het antwoord zonder deze zetten en zonder cijfers; leg de stelling inhoudelijk uit met de POSITIEFEITEN. Geef alleen het verbeterde antwoord, kort en zonder opmaak.`,
             },
           ]),
         );
@@ -69,8 +69,7 @@ export async function askCoach(
       const warnings: string[] = [];
       if (check.unknownMoves.length)
         warnings.push(`Niet door de engine bevestigde zetten: ${check.unknownMoves.join(", ")}`);
-      if (check.unknownEvals.length)
-        warnings.push(`Niet door de engine bevestigde evaluaties: ${check.unknownEvals.join(", ")}`);
+      if (check.unknownEvals.length) warnings.push(`Antwoord bevat cijfers: ${check.unknownEvals.join(", ")}`);
       return { answer, warnings, provider: p.name, model: p.model };
     } catch (e) {
       errors.push(`${p.name}: ${e instanceof Error ? e.message : String(e)}`);

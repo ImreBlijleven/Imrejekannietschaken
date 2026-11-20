@@ -7,6 +7,7 @@ import { CATEGORY_TEXT, type Category } from "../chess/patterns";
 import { formatLine, uciLineToSan } from "../chess/uci";
 import type { FocusMoveFact, LineFact, PatternFact, WhatIfFact } from "./types";
 import type { PatternStat } from "../db/repository";
+import { describeLine, describeMove, hangingPieces } from "./describe";
 
 export function lineFact(fen: string, line: EngineLine, maxPlies = 8): LineFact {
   const sanMoves = uciLineToSan(fen, line.pv, maxPlies);
@@ -28,8 +29,36 @@ export function buildFocusFact(args: {
   const moveNumber = parseInt(fenBefore.split(" ")[5] ?? "1", 10);
   chess.move(san);
   const fenAfter = chess.fen();
+  const opp = mover === "w" ? "b" : "w";
   const scoreBefore = before.lines[0]?.score ?? { cp: 0 };
   const scoreAfter = after.lines[0]?.score ?? { cp: 0 };
+
+  const bestMoves = before.lines.slice(0, 3).map((l) => {
+    const lf = lineFact(fenBefore, l);
+    return { ...lf, san: lf.sanMoves[0] ?? "" };
+  });
+  const refutation = after.lines[0] ? lineFact(fenAfter, after.lines[0]) : undefined;
+
+  // Inhoudelijke feiten in woorden, zodat de coach de stelling kan uitleggen zonder cijfers.
+  const insights: string[] = [];
+  const threatsBefore = hangingPieces(fenBefore, mover);
+  if (threatsBefore.length) insights.push(`Vóór de zet stond al onder vuur: ${threatsBefore.join(", ")}.`);
+  insights.push(`Gespeelde zet: ${describeMove(fenBefore, san)}.`);
+  const hangingAfter = hangingPieces(fenAfter, mover);
+  if (hangingAfter.length) insights.push(`Na de zet staat onder vuur: ${hangingAfter.join(", ")}.`);
+  if (refutation?.sanMoves.length)
+    insights.push(`Sterkste vervolg daarna: ${describeLine(fenAfter, refutation.sanMoves, 3).join("; ")}.`);
+  const best = bestMoves[0];
+  if (best?.san && best.san !== san) {
+    insights.push(`Beste zet: ${describeMove(fenBefore, best.san)}.`);
+    const bestLine = describeLine(fenBefore, best.sanMoves, 3).slice(1);
+    if (bestLine.length) insights.push(`Met als vervolg: ${bestLine.join("; ")}.`);
+    const c = new Chess(fenBefore);
+    c.move(best.san);
+    const oppHanging = hangingPieces(c.fen(), opp);
+    if (oppHanging.length)
+      insights.push(`Na de beste zet staat bij de tegenstander onder vuur: ${oppHanging.join(", ")}.`);
+  }
 
   return {
     moveNumber,
@@ -42,13 +71,11 @@ export function buildFocusFact(args: {
     evalAfter: formatScore(scoreAfter),
     winChanceBefore: winPercent(scoreBefore, mover),
     winChanceAfter: winPercent(scoreAfter, mover),
-    bestMoves: before.lines.slice(0, 3).map((l) => {
-      const lf = lineFact(fenBefore, l);
-      return { ...lf, san: lf.sanMoves[0] ?? "" };
-    }),
-    refutation: after.lines[0] ? lineFact(fenAfter, after.lines[0]) : undefined,
+    bestMoves,
+    refutation,
     category: args.category ? CATEGORY_TEXT[args.category] : undefined,
     categoryDetail: args.categoryDetail,
+    insights,
   };
 }
 
@@ -78,7 +105,11 @@ export function movesMentioned(question: string, fen: string): string[] {
   const norm = (s: string) => s.replace(/[+#]/g, "").replace(/0/g, "O");
   // Nederlandse stukletters (K D T L P) omzetten naar Engels.
   const nlToEn = (s: string) =>
-    s.replace(/^D/, "Q").replace(/^T/, "R").replace(/^L/, "B").replace(/^P(?=[a-hx])/, "N");
+    s
+      .replace(/^D/, "Q")
+      .replace(/^T/, "R")
+      .replace(/^L/, "B")
+      .replace(/^P(?=[a-hx])/, "N");
   const found = new Set<string>();
   for (const tok of question.split(/[\s,;?!()]+/)) {
     const t = norm(tok.replace(/\.$/, ""));

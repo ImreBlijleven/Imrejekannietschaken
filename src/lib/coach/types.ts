@@ -22,6 +22,7 @@ export interface FocusMoveFact {
   refutation?: LineFact; // beste vervolg van de tegenstander na de gespeelde zet
   category?: string;
   categoryDetail?: string;
+  insights?: string[]; // inhoudelijke positiefeiten (chess.js), zonder cijfers
 }
 
 export interface WhatIfFact extends LineFact {
