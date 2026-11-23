@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "node scripts/copy-stockfish.mjs",
     "testset": "tsx --env-file-if-exists=.env.local scripts/testset.mts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check-drills": "tsx scripts/check-drills.mts"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

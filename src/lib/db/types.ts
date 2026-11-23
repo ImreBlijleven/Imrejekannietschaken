@@ -26,6 +26,8 @@ export interface PlyRecord {
   fenBefore: string;
   fenAfter: string;
   evalBefore?: Score; // vanuit wit (alleen bij zetten van de speler)
+  book?: boolean; // theoriezet uit een oefening, niet beoordeeld
+  bookEval?: boolean; // evalAfter van deze theoriezet is echt berekend
   evalAfter: Score; // vanuit wit
   bestUci?: string; // beste zet in fenBefore (alleen voor zetten van de speler)
   bestSan?: string;
@@ -43,9 +45,12 @@ export interface GameRecord extends SyncFields {
   mode: GameMode;
   status: GameStatus;
   result?: string; // "1-0", "0-1", "1/2-1/2", "*"
-  endReason?: "mat" | "remise" | "opgegeven" | "afgebroken";
+  endReason?: "mat" | "remise" | "opgegeven" | "afgebroken" | "doel";
+  goal?: "mat" | "promoveren"; // doel van een oefensituatie
   pgn: string;
   plies: PlyRecord[];
+  startFen?: string; // partij begint vanuit een stelling (oefensituatie); anders de beginstelling
+  source?: string; // bv. "oefenen:italiaans:w"
   accuracy?: number;
 }
 
@@ -64,10 +69,21 @@ export interface MistakeRecord extends SyncFields {
   phase: Phase;
 }
 
+/** Voortgang per oefening en kleur (id = "<oefening>:<w|b>"). */
+export interface DrillRecord extends SyncFields {
+  drillId: string;
+  side: "w" | "b";
+  attempts: number;
+  perfect: number; // aantal foutloze rondes
+  streak: number; // foutloze rondes op rij → sterren
+  lastPracticed: string;
+}
+
 export interface ExportFile {
   app: "schaakcoach";
   schemaVersion: number;
   exportedAt: string;
   games: GameRecord[];
   mistakes: MistakeRecord[];
+  drills?: DrillRecord[];
 }

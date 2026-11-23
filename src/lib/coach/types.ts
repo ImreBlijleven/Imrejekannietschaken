@@ -40,6 +40,7 @@ export interface CoachFacts {
   pgn: string;
   currentFen: string;
   focus?: FocusMoveFact;
+  current?: { lines: LineFact[]; insights: string[] }; // analyse van de huidige stelling (zonder focuszet)
   whatIf: WhatIfFact[];
   patterns: PatternFact[];
 }

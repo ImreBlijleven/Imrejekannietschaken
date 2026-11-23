@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Chessboard, type Arrow } from "react-chessboard";
 import { ChevronLeft, ChevronRight, Flag, LoaderCircle, Minus, Plus, Undo2 } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
@@ -25,10 +25,11 @@ import { analyse, buildFacts } from "@/lib/client/analysis";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { uciToMove } from "@/lib/chess/uci";
 import { CoachChat } from "./CoachChat";
+import { EvalBar, evalAt } from "./EvalBar";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Button, IconButton, KEYS, useKeyShortcuts } from "./ui";
+import { BOARD_STYLE, Button, IconButton, KEYS, Segmented, useKeyShortcuts } from "./ui";
 
 const ELO_KEY = "schaakcoach.elo";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -36,44 +37,6 @@ const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const plyName = (p: PlyRecord) => `${moveNumber(p)}${p.color === "w" ? "." : "..."} ${p.san}`;
 
 /* ───────────────────────── Nieuwe partij ───────────────────────── */
-
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-  label: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="grid gap-1 rounded-xl bg-[var(--panel)] p-1"
-      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
-    >
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <button
-            key={o.value}
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.value)}
-            className={`min-h-12 rounded-lg px-2 text-sm transition-colors sm:min-h-11 ${
-              on ? "bg-[var(--accent)] font-semibold text-[var(--on-accent)]" : "text-[var(--muted)] hover:text-[var(--fg)]"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 function Setup({
   onStart,
@@ -268,9 +231,6 @@ export function PlayView() {
   const [waitForContinue, setWaitForContinue] = useState(false);
   const [moveFrom, setMoveFrom] = useState<string | null>(null); // tik-om-te-zetten: gekozen stuk
 
-  useEffect(() => {
-    repo.getOngoingGame().then((g) => setOngoing(g ?? null));
-  }, [repo]);
 
   // Na afloop: terug naar boven, waar de samenvatting staat.
   const finishedNow = game?.status === "afgelopen";
@@ -288,7 +248,7 @@ export function PlayView() {
   const runOpponent = useCallback(async () => {
     const g = gameRef.current;
     if (!g || g.status !== "bezig") return;
-    const chess = chessFromPlies(g.plies);
+    const chess = chessFromPlies(g.plies, g.startFen);
     if (chess.turn() === g.playerColor) return;
     setBusy("computer");
     const mv = await opponentMove(chess.fen(), g.elo ?? 1320 + g.level * 90);
@@ -319,7 +279,13 @@ export function PlayView() {
           /* niet ondersteund */
         }
       }
-      const over = finishIfOver(g);
+      // Oefensituatie: doel "promoveren" gehaald?
+      if (g.goal === "promoveren" && updated.san.includes("=")) {
+        g.result = g.playerColor === "w" ? "1-0" : "0-1";
+        g.endReason = "doel";
+        finalize(g);
+      }
+      const over = g.status === "afgelopen" || finishIfOver(g);
       setBusy("");
       await commit();
       if (over) return;
@@ -347,28 +313,43 @@ export function PlayView() {
   }
 
   async function resume() {
-    if (!ongoing) return;
-    const g: GameRecord = { ...ongoing, plies: [...ongoing.plies] };
+    if (ongoing) await resumeGame(ongoing);
+  }
+
+  async function resumeGame(saved: GameRecord) {
+    const g: GameRecord = { ...saved, plies: [...saved.plies] };
     gameRef.current = g;
     setOngoing(null);
     setSelected(null);
     await commit();
     const last = g.plies.at(-1);
-    if (last && last.color === g.playerColor && !last.label) await afterPlayerMove(last);
+    if (last && last.color === g.playerColor && !last.label && !last.book) await afterPlayerMove(last);
     else await runOpponent();
   }
+
+  // Vanuit Oefenen: /?hervat=<id> opent die partij direct.
+  const onOngoingLoaded = useEffectEvent((g: GameRecord | undefined) => {
+    const wanted = new URLSearchParams(window.location.search).get("hervat");
+    if (g && wanted === g.id) {
+      window.history.replaceState(null, "", "/");
+      void resumeGame(g);
+    } else setOngoing(g ?? null);
+  });
+  useEffect(() => {
+    repo.getOngoingGame().then(onOngoingLoaded);
+  }, [repo]);
 
   function canMove(): boolean {
     const g = gameRef.current;
     if (!g || busy || waitForContinue || g.status !== "bezig" || selected !== null) return false;
-    return chessFromPlies(g.plies).turn() === g.playerColor;
+    return chessFromPlies(g.plies, g.startFen).turn() === g.playerColor;
   }
 
   function onDrop(from: string, to: string | null): boolean {
     const g = gameRef.current;
     setMoveFrom(null);
     if (!g || !to || !canMove()) return false;
-    const chess = chessFromPlies(g.plies);
+    const chess = chessFromPlies(g.plies, g.startFen);
     const piece = chess.get(from as never);
     const promotion = piece?.type === "p" && (to[1] === "8" || to[1] === "1") ? "q" : undefined;
     const ply = applyMove(g, { from, to, promotion });
@@ -382,7 +363,7 @@ export function PlayView() {
   function onSquareTap(square: string) {
     const g = gameRef.current;
     if (!g || !canMove()) return;
-    const chess = chessFromPlies(g.plies);
+    const chess = chessFromPlies(g.plies, g.startFen);
     if (moveFrom) {
       const legal = chess.moves({ square: moveFrom as never, verbose: true }).some((m) => m.to === square);
       if (legal) {
@@ -412,7 +393,7 @@ export function PlayView() {
       const p = g.plies.pop()!;
       if (p.color === g.playerColor) break;
     }
-    g.pgn = chessFromPlies(g.plies).pgn();
+    g.pgn = chessFromPlies(g.plies, g.startFen).pgn();
     g.status = "bezig";
     g.result = "*";
     setWaitForContinue(false);
@@ -471,7 +452,7 @@ export function PlayView() {
   const showLabels = game.mode === "training" || finished;
   const lastPlayerPly = [...game.plies].reverse().find((p) => p.color === game.playerColor) ?? null;
   const focusPly = selected !== null ? game.plies[selected] : null;
-  const playerToMove = !finished && chessFromPlies(game.plies).turn() === game.playerColor;
+  const playerToMove = !finished && chessFromPlies(game.plies, game.startFen).turn() === game.playerColor;
   const canInteract = playerToMove && !busy && !waitForContinue && !reviewing;
   const selection = canInteract ? moveFrom : null; // geen achtergebleven selectie buiten je beurt
 
@@ -479,7 +460,7 @@ export function PlayView() {
   const focusIsMistake = !!focusPly?.label && !["beste", "goed"].includes(focusPly.label) && !!focusPly.bestUci;
   const showMistakeArrows = focusIsMistake;
   const arrows: Arrow[] = [];
-  let boardFen = game.plies.at(-1)?.fenAfter ?? START_FEN;
+  let boardFen = game.plies.at(-1)?.fenAfter ?? game.startFen ?? START_FEN;
   const squareStyles: Record<string, React.CSSProperties> = {};
   const highlightPly = focusPly ?? game.plies.at(-1);
   if (focusPly) {
@@ -498,7 +479,7 @@ export function PlayView() {
   }
   if (selection) {
     squareStyles[selection] = { background: "rgba(47, 111, 79, 0.5)" };
-    for (const m of chessFromPlies(game.plies).moves({ square: selection as never, verbose: true })) {
+    for (const m of chessFromPlies(game.plies, game.startFen).moves({ square: selection as never, verbose: true })) {
       squareStyles[m.to] = m.captured
         ? { background: "radial-gradient(circle, transparent 58%, rgba(0,0,0,0.25) 60%)" }
         : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 22%, transparent 24%)" };
@@ -583,6 +564,7 @@ export function PlayView() {
               }}
             />
           </div>
+          <EvalBar score={evalAt(game.plies, game.playerColor, selected)} playerColor={game.playerColor} />
           <div className="flex items-center gap-1">
             <IconButton
               label="Vorige zet"
@@ -642,6 +624,7 @@ export function PlayView() {
             buildFacts={(question) =>
               buildFacts({
                 plies: game.plies,
+                startFen: game.startFen,
                 playerColor: game.playerColor,
                 focusPly: chatPly?.ply ?? null,
                 question,

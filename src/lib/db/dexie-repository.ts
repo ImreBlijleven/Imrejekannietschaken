@@ -5,18 +5,23 @@
 import Dexie, { type Table } from "dexie";
 import type { Repository, PatternStat } from "./repository";
 import { now } from "./repository";
-import { SCHEMA_VERSION, type ExportFile, type GameRecord, type MistakeRecord } from "./types";
+import { SCHEMA_VERSION, type DrillRecord, type ExportFile, type GameRecord, type MistakeRecord } from "./types";
 import type { Category } from "../chess/patterns";
 
 class CoachDb extends Dexie {
   games!: Table<GameRecord, string>;
   mistakes!: Table<MistakeRecord, string>;
+  drills!: Table<DrillRecord, string>;
 
   constructor() {
     super("schaakcoach");
     this.version(1).stores({
       games: "id, createdAt, updatedAt, status",
       mistakes: "id, gameId, category, createdAt, updatedAt",
+    });
+    // v2: voortgang van oefeningen
+    this.version(2).stores({
+      drills: "id, updatedAt",
     });
   }
 }
@@ -93,6 +98,31 @@ export class DexieRepository implements Repository {
     return [...map.values()].sort((a, b) => b.count - a.count);
   }
 
+  async listDrills() {
+    return (await this.db.drills.toArray()).filter((d) => !d.deleted);
+  }
+
+  async recordDrill(drillId: string, side: "w" | "b", mistakes: number) {
+    const id = `${drillId}:${side}`;
+    const ts = now();
+    const prev = await this.db.drills.get(id);
+    const clean = mistakes === 0;
+    const rec: DrillRecord = {
+      id,
+      drillId,
+      side,
+      createdAt: prev?.createdAt ?? ts,
+      updatedAt: ts,
+      schemaVersion: SCHEMA_VERSION,
+      attempts: (prev?.attempts ?? 0) + 1,
+      perfect: (prev?.perfect ?? 0) + (clean ? 1 : 0),
+      streak: clean ? (prev?.streak ?? 0) + 1 : 0,
+      lastPracticed: ts,
+    };
+    await this.db.drills.put(rec);
+    return rec;
+  }
+
   async exportAll(): Promise<ExportFile> {
     return {
       app: "schaakcoach",
@@ -100,6 +130,7 @@ export class DexieRepository implements Repository {
       exportedAt: now(),
       games: await this.db.games.toArray(),
       mistakes: await this.db.mistakes.toArray(),
+      drills: await this.db.drills.toArray(),
     };
   }
 
@@ -109,7 +140,8 @@ export class DexieRepository implements Repository {
       throw new Error("Deze backup komt uit een nieuwere versie van de app.");
     let games = 0;
     let mistakes = 0;
-    await this.db.transaction("rw", this.db.games, this.db.mistakes, async () => {
+    let drills = 0;
+    await this.db.transaction("rw", this.db.games, this.db.mistakes, this.db.drills, async () => {
       for (const g of file.games) {
         if (newer(await this.db.games.get(g.id), g)) {
           await this.db.games.put(g);
@@ -122,8 +154,14 @@ export class DexieRepository implements Repository {
           mistakes++;
         }
       }
+      for (const d of file.drills ?? []) {
+        if (newer(await this.db.drills.get(d.id), d)) {
+          await this.db.drills.put(d);
+          drills++;
+        }
+      }
     });
-    return { games, mistakes };
+    return { games, mistakes, drills };
   }
 }
 

@@ -51,6 +51,7 @@ export function allowedMoves(f: CoachFacts): Set<string> {
     all.push(...legalSans(f.focus.fenBefore));
   }
   for (const w of f.whatIf) all.push(w.san, ...w.sanMoves);
+  for (const l of f.current?.lines ?? []) all.push(...l.sanMoves);
   all.push(...legalSans(f.currentFen));
   return new Set(all.map(normalizeSan));
 }

@@ -79,6 +79,19 @@ export function buildFocusFact(args: {
   };
 }
 
+/** Sterkste varianten en inhoudelijke feiten voor de huidige stelling (voor vragen over het plan). */
+export function currentFact(fen: string, analysis: AnalysisResult) {
+  const lines = analysis.lines.slice(0, 3).map((l) => lineFact(fen, l));
+  const toMove = fen.split(" ")[1] as "w" | "b";
+  const insights: string[] = [];
+  const mine = hangingPieces(fen, toMove);
+  if (mine.length) insights.push(`Onder vuur bij de partij aan zet: ${mine.join(", ")}.`);
+  const theirs = hangingPieces(fen, toMove === "w" ? "b" : "w");
+  if (theirs.length) insights.push(`Onder vuur bij de andere partij: ${theirs.join(", ")}.`);
+  if (lines[0]?.sanMoves.length) insights.push(`Sterkste plan: ${describeLine(fen, lines[0].sanMoves, 4).join("; ")}.`);
+  return { lines, insights };
+}
+
 export function whatIfFact(fen: string, san: string, analysisAfter: AnalysisResult): WhatIfFact {
   const c = new Chess(fen);
   const m = c.move(san);

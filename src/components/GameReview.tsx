@@ -8,6 +8,7 @@ import { buildFacts } from "@/lib/client/analysis";
 import { biggestMistakes, resultText, strengthName } from "@/lib/client/game-flow";
 import { uciToMove } from "@/lib/chess/uci";
 import { CoachChat } from "./CoachChat";
+import { EvalBar, evalAt } from "./EvalBar";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { MoveList, moveNumber } from "./MoveList";
@@ -88,6 +89,7 @@ export function GameReview({ game, onClose }: { game: GameRecord; onClose: () =>
               }}
             />
           </div>
+          <EvalBar score={evalAt(game.plies, game.playerColor, selected)} playerColor={game.playerColor} />
           <div className="flex items-center gap-1">
             <IconButton label="Vorige zet" shortcut={KEYS.prev} variant="ghost" onClick={() => go(-1)} disabled={!selected}>
               <ChevronLeft className="size-5" aria-hidden />

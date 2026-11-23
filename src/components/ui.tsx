@@ -59,7 +59,6 @@ export function IconButton({
   );
 }
 
-
 const DATE_FMT = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", year: "numeric" });
 const DATETIME_FMT = new Intl.DateTimeFormat("nl-NL", {
   day: "numeric",
@@ -140,4 +139,43 @@ export function useKeyShortcuts(onKey: (key: string) => boolean | void) {
   }, []);
 }
 
-
+/** Keuze uit een paar opties (radiogroep), vlak in één balk. */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="grid gap-1 rounded-xl bg-[var(--panel)] p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.value)}
+            className={`min-h-12 rounded-lg px-2 text-sm transition-colors sm:min-h-11 ${
+              on
+                ? "bg-[var(--accent)] font-semibold text-[var(--on-accent)]"
+                : "text-[var(--muted)] hover:text-[var(--fg)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}

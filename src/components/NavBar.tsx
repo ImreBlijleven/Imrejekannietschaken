@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChartColumn, ChessKnight, History, Settings, type LucideIcon } from "lucide-react";
+import { ChartColumn, ChessKnight, GraduationCap, History, Settings, type LucideIcon } from "lucide-react";
 
 const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
   { href: "/", label: "Spelen", Icon: ChessKnight },
+  { href: "/oefenen", label: "Oefenen", Icon: GraduationCap },
   { href: "/patronen", label: "Patronen", Icon: ChartColumn },
   { href: "/partijen", label: "Partijen", Icon: History },
   { href: "/instellingen", label: "Instellingen", Icon: Settings },
@@ -40,7 +41,7 @@ export function NavBar() {
       </header>
       <nav
         aria-label="Hoofdmenu"
-        className="sm:hidden fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-[var(--border)] bg-[var(--panel)]"
+        className="sm:hidden fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--panel)]"
         style={{
           paddingBottom: "env(safe-area-inset-bottom)",
           paddingLeft: "env(safe-area-inset-left)",

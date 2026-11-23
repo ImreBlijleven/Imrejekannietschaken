@@ -31,9 +31,14 @@ export function strengthName(game: Pick<GameRecord, "elo" | "level">): string {
   return OLD_LEVEL_NAMES[game.level] ?? `Niveau ${game.level}`;
 }
 
-export function newGame(playerColor: "w" | "b", elo: number, mode: GameMode): GameRecord {
+export function newGame(
+  playerColor: "w" | "b",
+  elo: number,
+  mode: GameMode,
+  from?: { startFen?: string; moves?: string[]; source?: string; goal?: GameRecord["goal"] },
+): GameRecord {
   const ts = now();
-  return {
+  const game: GameRecord = {
     id: newId(),
     createdAt: ts,
     updatedAt: ts,
@@ -46,11 +51,24 @@ export function newGame(playerColor: "w" | "b", elo: number, mode: GameMode): Ga
     result: "*",
     pgn: "",
     plies: [],
+    startFen: from?.startFen,
+    source: from?.source,
+    goal: from?.goal,
   };
+  // Openingszetten uit een oefening alvast spelen (zonder beoordeling).
+  for (const san of from?.moves ?? []) {
+    const ply = applyMove(game, san);
+    if (ply) ply.book = true;
+  }
+  return game;
 }
 
-export function chessFromPlies(plies: PlyRecord[]): Chess {
-  const c = new Chess();
+/**
+ * Bouw de stelling op uit de zetten. De startstelling komt van de eerste zet (fenBefore),
+ * of van `startFen` als er nog geen zetten zijn; anders de normale beginstelling.
+ */
+export function chessFromPlies(plies: PlyRecord[], startFen?: string): Chess {
+  const c = new Chess(plies[0]?.fenBefore ?? startFen);
   for (const p of plies) c.move(p.san);
   return c;
 }
@@ -60,7 +78,7 @@ export function applyMove(
   game: GameRecord,
   move: string | { from: string; to: string; promotion?: string },
 ): PlyRecord | null {
-  const chess = chessFromPlies(game.plies);
+  const chess = chessFromPlies(game.plies, game.startFen);
   const fenBefore = chess.fen();
   let m;
   try {
@@ -169,7 +187,7 @@ export async function opponentMove(
 
 /** Zet status/uitslag als de partij voorbij is. Geeft true als de partij klaar is. */
 export function finishIfOver(game: GameRecord): boolean {
-  const chess = chessFromPlies(game.plies);
+  const chess = chessFromPlies(game.plies, game.startFen);
   if (!chess.isGameOver()) return false;
   if (chess.isCheckmate()) {
     game.result = chess.turn() === "w" ? "0-1" : "1-0";
@@ -201,7 +219,7 @@ export function resultText(game: GameRecord): string {
   const o = outcome(game);
   if (o === "remise") return "Remise";
   if (o === "afgebroken") return "Afgebroken";
-  if (o === "gewonnen") return game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
+  if (o === "gewonnen") return game.endReason === "doel" ? "Doel bereikt" : game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
   if (game.endReason === "opgegeven") return "Opgegeven";
   return game.endReason === "mat" ? "Verloren door mat" : "Verloren";
 }

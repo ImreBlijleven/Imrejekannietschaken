@@ -67,6 +67,17 @@ export function factsToText(f: CoachFacts): string {
     if (m.refutation) lines.push(`- Sterkste vervolg na ${m.san}: ${m.refutation.text}`);
   }
 
+  if (f.current) {
+    lines.push("");
+    lines.push(`HUIDIGE STELLING (${f.currentFen.split(" ")[1] === "w" ? "wit" : "zwart"} aan zet):`);
+    if (f.current.insights.length) {
+      lines.push(`- POSITIEFEITEN:`);
+      for (const i of f.current.insights) lines.push(`  • ${i}`);
+    }
+    lines.push(`- Sterkste varianten volgens Stockfish:`);
+    f.current.lines.forEach((l, i) => lines.push(`  ${i + 1}. ${l.text}`));
+  }
+
   if (f.whatIf.length) {
     const m = f.focus;
     lines.push("");

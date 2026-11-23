@@ -13,6 +13,11 @@ je vaak maakt.
 - **Foutpatronen**: elke fout wordt met vaste regels ingedeeld (stuk laten hangen, vork toegelaten, mat gemist,
   enz.) en opgeslagen. Op de pagina *Patronen* zie je je zwakke punten en kun je ze bespreken.
 - **Overzicht na de partij**: nauwkeurigheid, grafiek van je winstkans, je grootste fouten met pijlen op het bord.
+- **Winstkansbalk** onder het bord die na elke zet meeschuift.
+- **Oefenen**: openingen met wit of zwart (bv. *Tegen het Koningsindisch* met de Damegambiet-opzet). De computer
+  speelt de theorie met wisselende varianten; jij moet de theoriezet vinden. Wijk je af, dan beoordeelt Stockfish
+  of dat ook kan. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
+  Daarnaast eindspelsituaties met een doel (mat zetten, promoveren).
 - **Backup**: export/import als JSON-bestand.
 
 ## Hoe de coach eerlijk blijft
@@ -76,6 +81,15 @@ npm run testset -- --dry-run # alleen Stockfish/regels, zonder taalmodel
 Dit analyseert 10 bekende fouten (`scripts/testset-positions.mts`), stelt elk model dezelfde vraag en schrijft
 `testset-resultaat.md`, met per model hoeveel antwoorden de controle haalden. Lees de uitleg daarnaast zelf: de
 controle vangt verzonnen zetten, maar niet of de uitleg goed is.
+
+## Oefeningen toevoegen
+
+Openingen en situaties staan in `src/lib/training/drills.ts`. Een opening is een lijst theorie-lijnen (SAN); samen
+vormen ze een boom. Controleer na het toevoegen met:
+
+```bash
+npm run check-drills   # elke zet legaal en geen fout volgens Stockfish; situaties winnend
+```
 
 ## Online zetten (Vercel)
 
