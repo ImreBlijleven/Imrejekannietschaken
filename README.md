@@ -16,7 +16,8 @@ je vaak maakt.
 - **Winstkansbalk** onder het bord die na elke zet meeschuift.
 - **Oefenen**: openingen met wit of zwart (bv. *Tegen het Koningsindisch* met de Damegambiet-opzet). De computer
   speelt de theorie met wisselende varianten; jij moet de theoriezet vinden. Wijk je af, dan beoordeelt Stockfish
-  of dat ook kan. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
+  of dat ook kan. Onder de titel staat welke variant er gespeeld wordt (bv. *Koningsindisch, Sämisch-variant*),
+  steeds specifieker naarmate de zetten die bepalen. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
   Daarnaast eindspelsituaties met een doel (mat zetten, promoveren).
 - **Backup**: export/import als JSON-bestand.
 
@@ -85,7 +86,7 @@ controle vangt verzonnen zetten, maar niet of de uitleg goed is.
 ## Oefeningen toevoegen
 
 Openingen en situaties staan in `src/lib/training/drills.ts`. Een opening is een lijst theorie-lijnen (SAN); samen
-vormen ze een boom. Controleer na het toevoegen met:
+vormen ze een boom. `variations` geeft namen aan beginreeksen; de langste passende reeks wordt getoond. Controleer na het toevoegen met:
 
 ```bash
 npm run check-drills   # elke zet legaal en geen fout volgens Stockfish; situaties winnend

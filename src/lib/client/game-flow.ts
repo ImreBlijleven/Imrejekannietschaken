@@ -35,7 +35,7 @@ export function newGame(
   playerColor: "w" | "b",
   elo: number,
   mode: GameMode,
-  from?: { startFen?: string; moves?: string[]; source?: string; goal?: GameRecord["goal"] },
+  from?: { startFen?: string; moves?: string[]; source?: string; goal?: GameRecord["goal"]; opening?: string },
 ): GameRecord {
   const ts = now();
   const game: GameRecord = {
@@ -54,6 +54,7 @@ export function newGame(
     startFen: from?.startFen,
     source: from?.source,
     goal: from?.goal,
+    opening: from?.opening,
   };
   // Openingszetten uit een oefening alvast spelen (zonder beoordeling).
   for (const san of from?.moves ?? []) {

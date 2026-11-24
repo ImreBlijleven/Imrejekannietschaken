@@ -35,7 +35,15 @@ for (const o of OPENINGS) {
       }
     }
   }
-  console.log(`✓ ${o.id} (${o.lines.length} lijnen)`);
+  // Varianten: legale zetten én begin van minstens één theorie-lijn (anders wordt de naam nooit getoond).
+  for (const v of o.variations) {
+    const reachable = o.lines.some((line) => v.moves.every((m, i) => line[i] === m));
+    if (!reachable) {
+      console.log(`✗ ${o.id}: variant "${v.name}" (${v.moves.join(" ")}) komt in geen enkele lijn voor`);
+      problems++;
+    }
+  }
+  console.log(`✓ ${o.id} (${o.lines.length} lijnen, ${o.variations.length} varianten)`);
 }
 for (const p of POSITIONS) {
   try {

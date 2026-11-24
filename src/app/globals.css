@@ -156,6 +156,14 @@ select {
   }
 }
 
+/* Korte infade, bv. als de variantnaam verandert (alleen zonder "reduced motion"). */
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
 /* View transitions: kort (< 300ms) en uit bij "reduced motion". */
 @view-transition {
   navigation: auto;

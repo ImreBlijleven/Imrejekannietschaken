@@ -12,6 +12,13 @@ export interface OpeningDrill {
   lines: string[][];
   /** Korte notatie voor de lijst als de gemeenschappelijke beginzetten te weinig zeggen. */
   preview?: string;
+  /** Benoemde varianten: de naam geldt zodra de gespeelde zetten met `moves` beginnen. */
+  variations: Variation[];
+}
+
+export interface Variation {
+  moves: string[];
+  name: string;
 }
 
 export interface PositionDrill {
@@ -26,6 +33,7 @@ export interface PositionDrill {
 export type Drill = OpeningDrill | PositionDrill;
 
 const l = (s: string) => s.trim().split(/\s+/);
+const v = (moves: string, name: string): Variation => ({ moves: l(moves), name });
 
 export const OPENINGS: OpeningDrill[] = [
   {
@@ -37,6 +45,13 @@ export const OPENINGS: OpeningDrill[] = [
       l("e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 a6 O-O d6"),
       l("e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Be7 O-O O-O Re1 d6"),
     ],
+    variations: [
+      v("e4 e5 Nf3 Nc6 Bc4", "Italiaanse partij"),
+      v("e4 e5 Nf3 Nc6 Bc4 Bc5", "Giuoco Piano"),
+      v("e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3", "Giuoco Pianissimo"),
+      v("e4 e5 Nf3 Nc6 Bc4 Nf6", "Tweepaardjesspel"),
+      v("e4 e5 Nf3 Nc6 Bc4 Nf6 d3", "Tweepaardjesspel, rustige variant (4.d3)"),
+    ],
   },
   {
     kind: "opening",
@@ -45,6 +60,13 @@ export const OPENINGS: OpeningDrill[] = [
     lines: [
       l("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6 c3 O-O"),
       l("e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+ Kxd8"),
+    ],
+    variations: [
+      v("e4 e5 Nf3 Nc6 Bb5", "Spaanse partij"),
+      v("e4 e5 Nf3 Nc6 Bb5 a6", "Morphy-verdediging"),
+      v("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7", "Gesloten Spaans"),
+      v("e4 e5 Nf3 Nc6 Bb5 Nf6", "Berlijnse verdediging"),
+      v("e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 d4 Nd6 Bxc6 dxc6 dxe5 Nf5 Qxd8+", "Berlijnse muur"),
     ],
   },
   {
@@ -55,6 +77,12 @@ export const OPENINGS: OpeningDrill[] = [
       l("e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5 Be3 Qf6 c3 Nge7"),
       l("e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5 Qe7 Qe2 Nd5 c4 Ba6"),
     ],
+    variations: [
+      v("e4 e5 Nf3 Nc6 d4 exd4 Nxd4", "Schotse partij"),
+      v("e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Bc5", "Klassieke variant (4...Bc5)"),
+      v("e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6", "Schmidt-variant (4...Nf6)"),
+      v("e4 e5 Nf3 Nc6 d4 exd4 Nxd4 Nf6 Nxc6 bxc6 e5", "Mieses-variant"),
+    ],
   },
   {
     kind: "opening",
@@ -63,6 +91,13 @@ export const OPENINGS: OpeningDrill[] = [
     lines: [
       l("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6 f3 Be7"),
       l("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2 e5 Nb3 Be7 O-O O-O"),
+    ],
+    variations: [
+      v("e4 c5", "Siciliaans"),
+      v("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3", "Open Siciliaans"),
+      v("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", "Najdorf-variant"),
+      v("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3", "Najdorf, Engelse aanval (6.Be3)"),
+      v("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be2", "Najdorf, Opočenský-variant (6.Be2)"),
     ],
   },
   {
@@ -74,12 +109,25 @@ export const OPENINGS: OpeningDrill[] = [
       l("e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 c5 Be3 cxd4 Nxd4 Ne7"),
       l("e4 c6 d4 d5 exd5 cxd5 Bd3 Nc6 c3 Nf6 Bf4 Bg4"),
     ],
+    variations: [
+      v("e4 c6", "Caro-Kann"),
+      v("e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5", "Klassieke variant (4...Bf5)"),
+      v("e4 c6 d4 d5 e5", "Doorschuifvariant (3.e5)"),
+      v("e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2", "Doorschuifvariant, Short-systeem"),
+      v("e4 c6 d4 d5 exd5 cxd5", "Ruilvariant (3.exd5)"),
+    ],
   },
   {
     kind: "opening",
     id: "frans",
     names: { b: "Frans", w: "Tegen Frans" },
     lines: [l("e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7 f4 c5 Nf3 Nc6 Be3 cxd4 Nxd4"), l("e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 a3 c4")],
+    variations: [
+      v("e4 e6", "Frans"),
+      v("e4 e6 d4 d5 Nc3 Nf6", "Klassieke variant (3...Nf6)"),
+      v("e4 e6 d4 d5 Nc3 Nf6 e5 Nfd7", "Steinitz-variant (4.e5)"),
+      v("e4 e6 d4 d5 e5", "Doorschuifvariant (3.e5)"),
+    ],
   },
   {
     kind: "opening",
@@ -89,6 +137,14 @@ export const OPENINGS: OpeningDrill[] = [
       l("d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6"),
       l("d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5 e3 e6 Bxc4 Bb4"),
       l("d4 d5 c4 dxc4 Nf3 Nf6 e3 e6 Bxc4 c5 O-O a6"),
+    ],
+    variations: [
+      v("d4 d5 c4", "Damegambiet"),
+      v("d4 d5 c4 e6", "Damegambiet geweigerd"),
+      v("d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6 Bh4 b6", "Damegambiet geweigerd, Tartakower-variant"),
+      v("d4 d5 c4 c6", "Slavisch"),
+      v("d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5", "Slavisch, Tsjechische variant"),
+      v("d4 d5 c4 dxc4", "Damegambiet aangenomen"),
     ],
   },
   {
@@ -100,28 +156,57 @@ export const OPENINGS: OpeningDrill[] = [
       l("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 d5 a5 Bg5 h6"),
       l("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3 O-O Be3 c5 Nge2 Nc6 Qd2"),
     ],
+    variations: [
+      v("d4 Nf6 c4 g6", "Indische opening"),
+      v("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6", "Koningsindisch"),
+      v("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2", "Koningsindisch, klassieke variant"),
+      v("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6", "Koningsindisch, Mar del Plata (7...Nc6)"),
+      v("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 d5", "Koningsindisch, Petrosjan-variant (7.d5)"),
+      v("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3", "Koningsindisch, Sämisch-variant (5.f3)"),
+    ],
   },
   {
     kind: "opening",
     id: "nimzo",
     names: { b: "Nimzo-Indisch", w: "Tegen Nimzo-Indisch" },
     lines: [l("d4 Nf6 c4 e6 Nc3 Bb4 e3 O-O Bd3 d5 Nf3 c5 O-O"), l("d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O a3 Bxc3+ Qxc3 b6")],
+    variations: [
+      v("d4 Nf6 c4 e6 Nc3 Bb4", "Nimzo-Indisch"),
+      v("d4 Nf6 c4 e6 Nc3 Bb4 e3", "Nimzo-Indisch, Rubinstein-variant (4.e3)"),
+      v("d4 Nf6 c4 e6 Nc3 Bb4 Qc2", "Nimzo-Indisch, klassieke variant (4.Qc2)"),
+    ],
   },
   {
     kind: "opening",
     id: "londen",
     names: { w: "Londen-systeem", b: "Tegen het Londen-systeem" },
     preview: "1.d4 en 2.Bf4",
-    lines: [
-      l("d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O Bd3"),
-      l("d4 Nf6 Bf4 g6 e3 Bg7 Nf3 O-O Be2 d6 O-O"),
+    lines: [l("d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3 Nc6 Nbd2 Bd6 Bg3 O-O Bd3"), l("d4 Nf6 Bf4 g6 e3 Bg7 Nf3 O-O Be2 d6 O-O")],
+    variations: [
+      v("d4 d5 Bf4", "Londen-systeem (tegen ...d5)"),
+      v("d4 Nf6 Bf4", "Londen-systeem (tegen ...Nf6)"),
+      v("d4 Nf6 Bf4 g6", "Londen-systeem tegen Koningsindisch-opzet"),
     ],
   },
 ];
 
 export const POSITIONS: PositionDrill[] = [
-  { kind: "position", id: "mat-dame", name: "Mat met dame", fen: "8/8/8/4k3/8/8/8/3QK3 w - - 0 1", side: "w", goal: "mat" },
-  { kind: "position", id: "mat-toren", name: "Mat met toren", fen: "8/8/8/4k3/8/8/8/R3K3 w - - 0 1", side: "w", goal: "mat" },
+  {
+    kind: "position",
+    id: "mat-dame",
+    name: "Mat met dame",
+    fen: "8/8/8/4k3/8/8/8/3QK3 w - - 0 1",
+    side: "w",
+    goal: "mat",
+  },
+  {
+    kind: "position",
+    id: "mat-toren",
+    name: "Mat met toren",
+    fen: "8/8/8/4k3/8/8/8/R3K3 w - - 0 1",
+    side: "w",
+    goal: "mat",
+  },
   {
     kind: "position",
     id: "pion-promoveren",
@@ -147,4 +232,15 @@ export function firstMoves(o: OpeningDrill, plies = 7): string {
     shared.push(m);
   }
   return shared.map((m, i) => (i % 2 === 0 ? `${i / 2 + 1}.${m}` : m)).join(" ");
+}
+
+/** Meest specifieke variant die bij de gespeelde zetten past (langste passende beginreeks). */
+export function currentVariation(o: OpeningDrill, played: string[]): string | null {
+  let best: Variation | null = null;
+  for (const v of o.variations) {
+    if (v.moves.length > played.length) continue;
+    if (!v.moves.every((m, i) => played[i] === m)) continue;
+    if (!best || v.moves.length > best.moves.length) best = v;
+  }
+  return best?.name ?? null;
 }

@@ -18,15 +18,7 @@ const RESULT_COLOR: Record<Outcome | "bezig", string> = {
 };
 
 /** Eén partij in de lijst. Zonder `game` toont dezelfde rij grijze blokken (laadstand). */
-function GameRow({
-  game: g,
-  onOpen,
-  onDelete,
-}: {
-  game?: GameRecord;
-  onOpen?: () => void;
-  onDelete?: () => void;
-}) {
+function GameRow({ game: g, onOpen, onDelete }: { game?: GameRecord; onOpen?: () => void; onDelete?: () => void }) {
   const state = g ? (g.status === "bezig" ? "bezig" : outcome(g)) : null;
   return (
     <li className="flex items-center">
@@ -53,6 +45,7 @@ function GameRow({
           </span>
           {g ? (
             <span className="num block text-sm">
+              {g.opening && <span className="block truncate text-[var(--accent-ink)]">{g.opening}</span>}
               {strengthName(g)} · {g.playerColor === "w" ? "wit" : "zwart"} · {Math.ceil(g.plies.length / 2)} zetten
               {g.accuracy !== undefined && (
                 <span className="whitespace-nowrap text-[var(--muted)]"> · {g.accuracy.toFixed(0)}% nauwkeurig</span>
@@ -93,46 +86,48 @@ export function GamesView() {
     <div className="space-y-4">
       <h1 className="text-3xl font-bold tracking-tight">Partijen</h1>
       {games === null && showSkeleton && (
-        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]" aria-busy="true" aria-label="Partijen laden">
-            <GameRow />
-            <GameRow />
+        <ul
+          className="divide-y divide-[var(--border)] border-y border-[var(--border)]"
+          aria-busy="true"
+          aria-label="Partijen laden"
+        >
+          <GameRow />
+          <GameRow />
           <GameRow />
         </ul>
       )}
-      {games?.length === 0 && (
-        <p className="text-[var(--muted)]">Nog geen partijen.</p>
-      )}
+      {games?.length === 0 && <p className="text-[var(--muted)]">Nog geen partijen.</p>}
       {games && games.length > 0 && (
         <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
-            {games.map((g) => (
-              <GameRow
-                key={g.id}
-                game={g}
-                onOpen={() => setOpen(g)}
-                onDelete={async () => {
-                  // Direct verwijderen (soft delete) met een Ongedaan-maken-melding i.p.v. een bevestigingsvraag.
-                  // Optimistisch: eerst uit de lijst, bij een fout terugzetten met een melding.
-                  setGames((list) => list?.filter((x) => x.id !== g.id) ?? null);
-                  try {
-                    await repo.deleteGame(g.id);
-                  } catch {
-                    setGames(await repo.listGames());
-                    showToast({ message: "Verwijderen mislukt. De partij staat er nog." });
-                    return;
-                  }
-                  showToast({
-                    message: "Partij verwijderd.",
-                    action: {
-                      label: "Ongedaan maken",
-                      onClick: async () => {
-                        await repo.restoreGame(g.id);
-                        setGames(await repo.listGames());
-                      },
+          {games.map((g) => (
+            <GameRow
+              key={g.id}
+              game={g}
+              onOpen={() => setOpen(g)}
+              onDelete={async () => {
+                // Direct verwijderen (soft delete) met een Ongedaan-maken-melding i.p.v. een bevestigingsvraag.
+                // Optimistisch: eerst uit de lijst, bij een fout terugzetten met een melding.
+                setGames((list) => list?.filter((x) => x.id !== g.id) ?? null);
+                try {
+                  await repo.deleteGame(g.id);
+                } catch {
+                  setGames(await repo.listGames());
+                  showToast({ message: "Verwijderen mislukt. De partij staat er nog." });
+                  return;
+                }
+                showToast({
+                  message: "Partij verwijderd.",
+                  action: {
+                    label: "Ongedaan maken",
+                    onClick: async () => {
+                      await repo.restoreGame(g.id);
+                      setGames(await repo.listGames());
                     },
-                  });
-                }}
-              />
-            ))}
+                  },
+                });
+              }}
+            />
+          ))}
         </ul>
       )}
     </div>

@@ -51,6 +51,7 @@ export interface GameRecord extends SyncFields {
   plies: PlyRecord[];
   startFen?: string; // partij begint vanuit een stelling (oefensituatie); anders de beginstelling
   source?: string; // bv. "oefenen:italiaans:w"
+  opening?: string; // naam van de variant als de partij uit een oefening komt
   accuracy?: number;
 }
 

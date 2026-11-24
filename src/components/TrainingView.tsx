@@ -10,6 +10,7 @@ import type { DrillRecord } from "@/lib/db/types";
 import {
   OPENINGS,
   POSITIONS,
+  currentVariation,
   firstMoves,
   openingName,
   type OpeningDrill,
@@ -94,6 +95,7 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
   const finished = expected.length === 0;
   const myTurn = !finished && chess.turn() === side;
   const total = lineLength(drill.lines, moves);
+  const variation = currentVariation(drill, moves);
 
   // Tegenstander speelt een theoriezet (willekeurige variant).
   useEffect(() => {
@@ -201,11 +203,7 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
         : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 22%, transparent 24%)" };
   }
 
-  const status = checking
-      ? "Stockfish kijkt mee…"
-      : myTurn
-        ? "Jouw zet"
-        : "Tegenstander…";
+  const status = checking ? "Stockfish kijkt mee…" : myTurn ? "Jouw zet" : "Tegenstander…";
   const feedbackColor =
     feedback?.kind === "ok" ? "text-good" : feedback?.kind === "fout" ? "text-mistake" : "text-[var(--muted)]";
 
@@ -216,7 +214,17 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
           <IconButton label="Terug naar oefeningen" shortcut={KEYS.back} variant="ghost" onClick={onExit}>
             <ArrowLeft className="size-5" aria-hidden />
           </IconButton>
-          <h1 className="min-w-0 truncate text-lg font-semibold">{openingName(drill, side)}</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold">{openingName(drill, side)}</h1>
+            {/* Huidige variant: wordt specifieker naarmate de zetten de variant bepalen. */}
+            <p
+              key={variation ?? "-"}
+              className="truncate text-sm text-[var(--accent-ink)] motion-safe:animate-[fadein_300ms_ease-out]"
+              aria-live="polite"
+            >
+              {variation ?? "Beginstelling"}
+            </p>
+          </div>
         </div>
         <div className="board-touch aspect-square w-full max-w-[560px] overflow-hidden rounded-lg">
           <Chessboard
@@ -270,6 +278,7 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
               </p>
               {result && <Stars n={Math.min(3, result.streak)} />}
             </div>
+            {variation && <p className="-mt-2 text-sm text-[var(--muted)]">{variation}</p>}
             <div className="grid grid-cols-2 gap-2">
               <Button onClick={restart}>
                 <RotateCcw className="size-4" aria-hidden /> Opnieuw
@@ -277,7 +286,11 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
               <Button
                 variant="primary"
                 onClick={() =>
-                  startGameFrom(router, side, storedElo(), { moves, source: `oefenen:${drill.id}:${side}` })
+                  startGameFrom(router, side, storedElo(), {
+                    moves,
+                    source: `oefenen:${drill.id}:${side}`,
+                    opening: variation ?? openingName(drill, side),
+                  })
                 }
               >
                 <Swords className="size-4" aria-hidden /> Speel verder
