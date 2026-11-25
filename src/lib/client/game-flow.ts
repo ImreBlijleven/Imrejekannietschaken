@@ -35,7 +35,14 @@ export function newGame(
   playerColor: "w" | "b",
   elo: number,
   mode: GameMode,
-  from?: { startFen?: string; moves?: string[]; source?: string; goal?: GameRecord["goal"]; opening?: string },
+  from?: {
+    startFen?: string;
+    moves?: string[];
+    source?: string;
+    goal?: GameRecord["goal"];
+    opening?: string;
+    hints?: boolean;
+  },
 ): GameRecord {
   const ts = now();
   const game: GameRecord = {
@@ -55,6 +62,7 @@ export function newGame(
     source: from?.source,
     goal: from?.goal,
     opening: from?.opening,
+    hints: from?.hints,
   };
   // Openingszetten uit een oefening alvast spelen (zonder beoordeling).
   for (const san of from?.moves ?? []) {
@@ -220,7 +228,8 @@ export function resultText(game: GameRecord): string {
   const o = outcome(game);
   if (o === "remise") return "Remise";
   if (o === "afgebroken") return "Afgebroken";
-  if (o === "gewonnen") return game.endReason === "doel" ? "Doel bereikt" : game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
+  if (o === "gewonnen")
+    return game.endReason === "doel" ? "Doel bereikt" : game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
   if (game.endReason === "opgegeven") return "Opgegeven";
   return game.endReason === "mat" ? "Verloren door mat" : "Verloren";
 }

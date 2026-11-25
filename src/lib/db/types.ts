@@ -47,6 +47,8 @@ export interface GameRecord extends SyncFields {
   result?: string; // "1-0", "0-1", "1/2-1/2", "*"
   endReason?: "mat" | "remise" | "opgegeven" | "afgebroken" | "doel";
   goal?: "mat" | "promoveren"; // doel van een oefensituatie
+  hints?: boolean; // hints toegestaan in een partij "Zonder hulp"
+  hintsUsed?: number; // aantal stellingen waarin je een hint opvroeg
   pgn: string;
   plies: PlyRecord[];
   startFen?: string; // partij begint vanuit een stelling (oefensituatie); anders de beginstelling

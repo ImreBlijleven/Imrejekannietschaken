@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Chessboard, type Arrow } from "react-chessboard";
-import { ChevronLeft, ChevronRight, Flag, LoaderCircle, Minus, Plus, Undo2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, Lightbulb, LoaderCircle, Minus, Plus, Undo2 } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { GameMode, GameRecord, PlyRecord } from "@/lib/db/types";
 import {
@@ -32,7 +32,7 @@ import { DrawButton, useArrowDrawing } from "./ArrowDrawing";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
-import { BOARD_STYLE, Button, IconButton, KEYS, Segmented, useKeyShortcuts } from "./ui";
+import { BOARD_STYLE, Button, IconButton, KEYS, Segmented, Switch, useKeyShortcuts } from "./ui";
 
 const ELO_KEY = "schaakcoach.elo";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -46,7 +46,7 @@ function Setup({
   ongoing,
   onResume,
 }: {
-  onStart: (c: "w" | "b", elo: number, mode: GameMode) => void;
+  onStart: (c: "w" | "b", elo: number, mode: GameMode, hints: boolean) => void;
   ongoing: GameRecord | null;
   onResume: () => void;
 }) {
@@ -75,6 +75,7 @@ function Setup({
     }
   };
   const [mode, setMode] = useState<GameMode>("training");
+  const [allowHints, setAllowHints] = useState(false);
 
   return (
     <div className="mx-auto max-w-lg space-y-8 pt-2 sm:pt-6">
@@ -152,12 +153,27 @@ function Setup({
           { value: "partij", label: "Zonder hulp" },
         ]}
       />
+      {mode === "partij" && (
+        <div className="-mt-6">
+          <Switch checked={allowHints} onChange={setAllowHints}>
+            <Lightbulb className="size-4 text-[var(--muted)]" aria-hidden />
+            Hints toestaan
+          </Switch>
+        </div>
+      )}
 
       <Button
         variant="primary"
         block
         className="min-h-14 text-base"
-        onClick={() => onStart(color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color, elo, mode)}
+        onClick={() =>
+          onStart(
+            color === "random" ? (Math.random() < 0.5 ? "w" : "b") : color,
+            elo,
+            mode,
+            mode === "partij" && allowHints,
+          )
+        }
       >
         Start
       </Button>
@@ -204,6 +220,12 @@ function Summary({
             {count("fout") > 0 && <span className="text-mistake">{count("fout")} ?</span>}
             {count("onnauwkeurig") > 0 && <span className="text-inaccuracy">{count("onnauwkeurig")} ?!</span>}
           </>
+        )}
+        {(game.hintsUsed ?? 0) > 0 && (
+          <span className="flex items-center gap-1 text-[var(--muted)]">
+            <Lightbulb className="size-3.5" aria-hidden />
+            {game.hintsUsed} {game.hintsUsed === 1 ? "hint" : "hints"}
+          </span>
         )}
       </p>
       <EvalGraph plies={game.plies} playerColor={game.playerColor} selected={selected} onSelect={onSelect} />
@@ -321,12 +343,12 @@ export function PlayView() {
     [commit, runOpponent],
   );
 
-  async function start(color: "w" | "b", elo: number, mode: GameMode) {
+  async function start(color: "w" | "b", elo: number, mode: GameMode, hints = false) {
     if (ongoing) {
       // Een openstaande partij wordt afgesloten als je een nieuwe begint.
       await repo.saveGame({ ...ongoing, status: "afgelopen", result: "*", endReason: "afgebroken" });
     }
-    const g = newGame(color, elo, mode);
+    const g = newGame(color, elo, mode, { hints });
     gameRef.current = g;
     setSelected(null);
     setMoveFrom(null);
@@ -463,6 +485,8 @@ export function PlayView() {
     }
     const san = uciLineToSan(fen, [a.bestMove], 1)[0];
     setHint({ at, level: 1, hints: buildHints(fen, san, a.lines[0]?.score), loading: false });
+    g.hintsUsed = (g.hintsUsed ?? 0) + 1;
+    await commit();
   }
 
   /** Eén zet terug of vooruit. Vooruit naar de laatste zet tijdens een lopende partij = terug naar live. */
@@ -658,7 +682,7 @@ export function PlayView() {
               <DrawButton on={draw.on} onClick={draw.toggle} />
               {!finished && !reviewing && (
                 <>
-                  {game.mode === "training" && (
+                  {(game.mode === "training" || game.hints) && (
                     <HintButton
                       level={hintLevel}
                       onClick={nextHint}

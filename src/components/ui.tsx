@@ -179,3 +179,35 @@ export function Segmented<T extends string>({
     </div>
   );
 }
+
+/** Aan/uit-schakelaar als volle rij (makkelijk te raken op de telefoon). */
+export function Switch({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-[var(--panel)] px-4 text-left text-sm sm:min-h-11"
+    >
+      <span className="flex items-center gap-2">{children}</span>
+      <span
+        aria-hidden
+        className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${checked ? "bg-[var(--accent)]" : "bg-[var(--border)]"}`}
+      >
+        <span
+          className={`absolute top-0.5 size-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform ${
+            checked ? "translate-x-[18px]" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}

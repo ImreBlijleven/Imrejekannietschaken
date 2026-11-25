@@ -16,7 +16,8 @@ je vaak maakt.
 - **Winstkansbalk** onder het bord die na elke zet meeschuift.
 - **Pijlen tekenen** (potlood): tik twee velden voor een pijl, of twee keer hetzelfde veld voor een ring. Op de
   computer kan het ook met rechtermuisknop slepen. De tekening verdwijnt na je volgende zet.
-- **Hints** (lampje) in de trainingsmodus en bij Oefenen: idee → stuk → zet, bepaald met vaste regels
+- **Hints** (lampje) in de trainingsmodus en bij Oefenen; bij "Zonder hulp" aan te zetten met "Hints toestaan"
+  (het aantal gebruikte hints staat bij de uitslag): idee → stuk → zet, bepaald met vaste regels
   (`src/lib/training/hints.ts`), niet door het taalmodel.
 - **Oefenen**: openingen met wit of zwart (bv. *Tegen het Koningsindisch* met de Damegambiet-opzet). De computer
   speelt de theorie met wisselende varianten; jij moet de theoriezet vinden. Wijk je af, dan beoordeelt Stockfish
