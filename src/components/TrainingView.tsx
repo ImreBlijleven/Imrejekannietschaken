@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { useRouter } from "next/navigation";
 import { Chess } from "chess.js";
 import { Chessboard, type Arrow } from "react-chessboard";
-import { ArrowLeft, ChevronRight, Lightbulb, LoaderCircle, RotateCcw, Star, Swords } from "lucide-react";
+import { ArrowLeft, ChevronRight, LoaderCircle, RotateCcw, Star, Swords } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { DrillRecord } from "@/lib/db/types";
 import {
@@ -22,6 +22,8 @@ import { analyse, buildFacts } from "@/lib/client/analysis";
 import { classify } from "@/lib/chess/evaluation";
 import { ELO_MAX, ELO_MIN, newGame } from "@/lib/client/game-flow";
 import { CoachChat } from "./CoachChat";
+import { HintButton, HintText, hintBoard } from "./Hint";
+import { buildHints } from "@/lib/training/hints";
 import { BOARD_STYLE, Button, IconButton, KEYS, Segmented, useKeyShortcuts } from "./ui";
 
 const SIDE_KEY = "schaakcoach.oefenkant";
@@ -73,13 +75,14 @@ function storedElo(): number {
 
 /* ───────────────────────── Openingsoefening ───────────────────────── */
 
-type Feedback = { kind: "ok" | "ook" | "fout" | "hint"; text: string; arrow?: { from: string; to: string } };
+type Feedback = { kind: "ok" | "ook" | "fout"; text: string; arrow?: { from: string; to: string } };
 
 function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: Side; onExit: () => void }) {
   const router = useRouter();
   const [moves, setMoves] = useState<string[]>([]);
   const [mistakes, setMistakes] = useState(0);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [hint, setHint] = useState({ at: -1, level: 0 }); // hint-stap voor de zet op positie `at`
   const [checking, setChecking] = useState(false);
   const [moveFrom, setMoveFrom] = useState<string | null>(null);
   const [result, setResult] = useState<DrillRecord | null>(null);
@@ -92,6 +95,7 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
     return c;
   }, [moves]);
   const expected = bookMoves(drill.lines, moves);
+  const hintLevel = hint.at === moves.length ? hint.level : 0;
   const finished = expected.length === 0;
   const myTurn = !finished && chess.turn() === side;
   const total = lineLength(drill.lines, moves);
@@ -172,10 +176,11 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
     setMoveFrom(piece && piece.color === side && square !== moveFrom ? square : null);
   }
 
-  function hint() {
-    if (!myTurn) return;
-    setMistakes((n) => n + 1);
-    setFeedback({ kind: "hint", text: `Theorie: ${expected[0]}`, arrow: arrowFor(expected[0]) });
+  /** Volgende hint-stap; de eerste stap per zet telt als fout. */
+  function nextHint() {
+    if (!myTurn || hintLevel >= 3) return;
+    if (hintLevel === 0) setMistakes((n) => n + 1);
+    setHint({ at: moves.length, level: hintLevel + 1 });
   }
 
   useKeyShortcuts((key) => {
@@ -186,15 +191,18 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
     return false;
   });
 
+  const hints = myTurn && expected[0] ? buildHints(chess.fen(), expected[0]) : null;
+  const hintMarks = hintBoard(hints, hintLevel);
   const arrows: Arrow[] = feedback?.arrow
     ? [{ startSquare: feedback.arrow.from, endSquare: feedback.arrow.to, color: "rgba(4,120,87,0.9)" }]
-    : [];
+    : hintMarks.arrows;
   const squareStyles: Record<string, React.CSSProperties> = {};
   const last = chess.history({ verbose: true }).at(-1);
   if (last) {
     squareStyles[last.from] = { background: "rgba(255, 214, 0, 0.35)" };
     squareStyles[last.to] = { background: "rgba(255, 214, 0, 0.45)" };
   }
+  Object.assign(squareStyles, hintMarks.squareStyles);
   if (moveFrom) {
     squareStyles[moveFrom] = { background: "rgba(47, 111, 79, 0.5)" };
     for (const m of chess.moves({ square: moveFrom as never, verbose: true }))
@@ -225,6 +233,11 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
               {variation ?? "Beginstelling"}
             </p>
           </div>
+          {!finished && (
+            <div className="ml-auto">
+              <HintButton level={hintLevel} onClick={nextHint} disabled={!myTurn || checking} costs />
+            </div>
+          )}
         </div>
         <div className="board-touch aspect-square w-full max-w-[560px] overflow-hidden rounded-lg">
           <Chessboard
@@ -261,12 +274,8 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
               </span>
             )}
           </p>
-          {!finished && (
-            <IconButton label="Hint (telt als fout)" variant="ghost" onClick={hint} disabled={!myTurn || checking}>
-              <Lightbulb className="size-5" aria-hidden />
-            </IconButton>
-          )}
         </div>
+        {!finished && <HintText hints={hints} level={hintLevel} />}
       </div>
 
       <div className="space-y-4">

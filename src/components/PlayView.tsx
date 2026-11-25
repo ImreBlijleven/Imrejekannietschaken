@@ -23,9 +23,11 @@ import {
 } from "@/lib/client/game-flow";
 import { analyse, buildFacts } from "@/lib/client/analysis";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
-import { uciToMove } from "@/lib/chess/uci";
+import { uciLineToSan, uciToMove } from "@/lib/chess/uci";
+import { buildHints, type Hints } from "@/lib/training/hints";
 import { CoachChat } from "./CoachChat";
 import { EvalBar, evalAt } from "./EvalBar";
+import { HintButton, HintText, hintBoard } from "./Hint";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
@@ -228,6 +230,13 @@ export function PlayView() {
   const [ongoing, setOngoing] = useState<GameRecord | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [busy, setBusy] = useState<"" | "beoordelen" | "computer">("");
+  // Hint voor de stelling na `at` halve zetten: idee → stuk → zet (op basis van de beste zet van Stockfish).
+  const [hint, setHint] = useState<{ at: number; level: number; hints: Hints | null; loading: boolean }>({
+    at: -1,
+    level: 0,
+    hints: null,
+    loading: false,
+  });
   const [waitForContinue, setWaitForContinue] = useState(false);
   const [moveFrom, setMoveFrom] = useState<string | null>(null); // tik-om-te-zetten: gekozen stuk
 
@@ -420,6 +429,28 @@ export function PlayView() {
     await commit();
   }
 
+  /** Volgende hint-stap. De eerste keer rekent Stockfish de beste zet uit (meestal al in de cache). */
+  async function nextHint() {
+    const g = gameRef.current;
+    if (!g) return;
+    const at = g.plies.length;
+    const current = hint.at === at ? hint : { at, level: 0, hints: null, loading: false };
+    if (current.level >= 3 || current.loading) return;
+    if (current.hints) {
+      setHint({ ...current, level: current.level + 1 });
+      return;
+    }
+    setHint({ ...current, loading: true });
+    const fen = chessFromPlies(g.plies, g.startFen).fen();
+    const a = await analyse(fen, 3);
+    if (gameRef.current !== g || g.plies.length !== at || !a.bestMove) {
+      setHint({ at: -1, level: 0, hints: null, loading: false });
+      return;
+    }
+    const san = uciLineToSan(fen, [a.bestMove], 1)[0];
+    setHint({ at, level: 1, hints: buildHints(fen, san, a.lines[0]?.score), loading: false });
+  }
+
   /** Eén zet terug of vooruit. Vooruit naar de laatste zet tijdens een lopende partij = terug naar live. */
   function step(d: number) {
     if (!game || !game.plies.length) return;
@@ -476,6 +507,13 @@ export function PlayView() {
     const lm = uciToMove(highlightPly.uci);
     squareStyles[lm.from] = { background: "rgba(255, 214, 0, 0.35)" };
     squareStyles[lm.to] = { background: "rgba(255, 214, 0, 0.45)" };
+  }
+  const hintActive = canInteract && hint.at === game.plies.length;
+  const hintLevel = hintActive ? hint.level : 0;
+  if (hintActive) {
+    const marks = hintBoard(hint.hints, hintLevel);
+    Object.assign(squareStyles, marks.squareStyles);
+    arrows.push(...marks.arrows);
   }
   if (selection) {
     squareStyles[selection] = { background: "rgba(47, 111, 79, 0.5)" };
@@ -595,6 +633,14 @@ export function PlayView() {
             )}
             {!finished && !reviewing && (
               <>
+                {game.mode === "training" && (
+                  <HintButton
+                    level={hintLevel}
+                    onClick={nextHint}
+                    disabled={!canInteract}
+                    busy={hint.loading && hint.at === game.plies.length}
+                  />
+                )}
                 {game.mode === "training" && !waitForContinue && (
                   <IconButton label="Zet terugnemen" variant="ghost" onClick={takeBack} disabled={!!busy || !lastPlayerPly}>
                     <Undo2 className="size-5" aria-hidden />
@@ -607,6 +653,8 @@ export function PlayView() {
             )}
           </div>
         </div>
+
+        {hintActive && <HintText hints={hint.hints} level={hintLevel} />}
 
         {/* Telefoon: beoordeling direct onder het bord, met de pauzeknoppen erin. */}
         {showLabels && feedbackPly?.label && <div className="lg:hidden">{feedback}</div>}

@@ -14,10 +14,14 @@ je vaak maakt.
   enz.) en opgeslagen. Op de pagina *Patronen* zie je je zwakke punten en kun je ze bespreken.
 - **Overzicht na de partij**: nauwkeurigheid, grafiek van je winstkans, je grootste fouten met pijlen op het bord.
 - **Winstkansbalk** onder het bord die na elke zet meeschuift.
+- **Hints** (lampje) in de trainingsmodus en bij Oefenen: idee → stuk → zet, bepaald met vaste regels
+  (`src/lib/training/hints.ts`), niet door het taalmodel.
 - **Oefenen**: openingen met wit of zwart (bv. *Tegen het Koningsindisch* met de Damegambiet-opzet). De computer
   speelt de theorie met wisselende varianten; jij moet de theoriezet vinden. Wijk je af, dan beoordeelt Stockfish
   of dat ook kan. Onder de titel staat welke variant er gespeeld wordt (bv. *Koningsindisch, Sämisch-variant*),
-  steeds specifieker naarmate de zetten die bepalen. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
+  steeds specifieker naarmate de zetten die bepalen. Het lampje geeft hints in drie stappen: een idee
+  ("Er is een paardvork mogelijk", "Hoe kun je druk zetten op f7?"), dan het stuk, dan de zet. De eerste hint
+  per zet telt als fout. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
   Daarnaast eindspelsituaties met een doel (mat zetten, promoveren).
 - **Backup**: export/import als JSON-bestand.
 

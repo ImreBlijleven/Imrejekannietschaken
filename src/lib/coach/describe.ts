@@ -3,8 +3,8 @@
 
 import { Chess, type Square } from "chess.js";
 
-const NAME: Record<string, string> = { p: "pion", n: "paard", b: "loper", r: "toren", q: "dame", k: "koning" };
-const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };
+export const PIECE_NAME: Record<string, string> = { p: "pion", n: "paard", b: "loper", r: "toren", q: "dame", k: "koning" };
+export const PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };
 
 /** Stukken van `color` die aangevallen worden en niet (genoeg) gedekt zijn. */
 export function hangingPieces(fen: string, color: "w" | "b"): string[] {
@@ -17,10 +17,10 @@ export function hangingPieces(fen: string, color: "w" | "b"): string[] {
       const attackers = chess.attackers(sq.square as Square, opp);
       if (!attackers.length) continue;
       const defenders = chess.attackers(sq.square as Square, color);
-      const cheapest = Math.min(...attackers.map((a) => VALUE[chess.get(a)!.type]));
-      if (defenders.length === 0) out.push(`${NAME[sq.type]} op ${sq.square} (ongedekt)`);
-      else if (cheapest < VALUE[sq.type])
-        out.push(`${NAME[sq.type]} op ${sq.square} (aangevallen door een minder waardevol stuk)`);
+      const cheapest = Math.min(...attackers.map((a) => PIECE_VALUE[chess.get(a)!.type]));
+      if (defenders.length === 0) out.push(`${PIECE_NAME[sq.type]} op ${sq.square} (ongedekt)`);
+      else if (cheapest < PIECE_VALUE[sq.type])
+        out.push(`${PIECE_NAME[sq.type]} op ${sq.square} (aangevallen door een minder waardevol stuk)`);
     }
   }
   return out;
@@ -38,9 +38,9 @@ export function describeMove(fen: string, san: string): string {
   const parts: string[] = [];
   if (m.isKingsideCastle()) parts.push("rokeert kort");
   else if (m.isQueensideCastle()) parts.push("rokeert lang");
-  else parts.push(`${NAME[m.piece]} van ${m.from} naar ${m.to}`);
-  if (m.captured) parts.push(`slaat ${NAME[m.captured]}`);
-  if (m.promotion) parts.push(`promoveert tot ${NAME[m.promotion]}`);
+  else parts.push(`${PIECE_NAME[m.piece]} van ${m.from} naar ${m.to}`);
+  if (m.captured) parts.push(`slaat ${PIECE_NAME[m.captured]}`);
+  if (m.promotion) parts.push(`promoveert tot ${PIECE_NAME[m.promotion]}`);
   if (m.san.includes("#")) parts.push("geeft mat");
   else if (m.san.includes("+")) parts.push("geeft schaak");
 
@@ -52,7 +52,7 @@ export function describeMove(fen: string, san: string): string {
       if (!sq || sq.color !== opp || sq.type === "k") continue;
       if (!chess.attackers(sq.square as Square, m.color).includes(m.to as Square)) continue;
       const defended = chess.attackers(sq.square as Square, opp).length > 0;
-      if (VALUE[sq.type] > VALUE[m.piece] || !defended) targets.push(`${NAME[sq.type]} op ${sq.square}`);
+      if (PIECE_VALUE[sq.type] > PIECE_VALUE[m.piece] || !defended) targets.push(`${PIECE_NAME[sq.type]} op ${sq.square}`);
     }
   }
   if (targets.length) parts.push(`valt ${targets.join(" en ")} aan`);
