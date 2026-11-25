@@ -23,6 +23,7 @@ import { classify } from "@/lib/chess/evaluation";
 import { ELO_MAX, ELO_MIN, newGame } from "@/lib/client/game-flow";
 import { CoachChat } from "./CoachChat";
 import { HintButton, HintText, hintBoard } from "./Hint";
+import { DrawButton, useArrowDrawing } from "./ArrowDrawing";
 import { buildHints } from "@/lib/training/hints";
 import { BOARD_STYLE, Button, IconButton, KEYS, Segmented, useKeyShortcuts } from "./ui";
 
@@ -96,6 +97,7 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
   }, [moves]);
   const expected = bookMoves(drill.lines, moves);
   const hintLevel = hint.at === moves.length ? hint.level : 0;
+  const draw = useArrowDrawing(`${round}:${moves.length}`);
   const finished = expected.length === 0;
   const myTurn = !finished && chess.turn() === side;
   const total = lineLength(drill.lines, moves);
@@ -196,13 +198,14 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
   const arrows: Arrow[] = feedback?.arrow
     ? [{ startSquare: feedback.arrow.from, endSquare: feedback.arrow.to, color: "rgba(4,120,87,0.9)" }]
     : hintMarks.arrows;
+  arrows.push(...draw.arrows);
   const squareStyles: Record<string, React.CSSProperties> = {};
   const last = chess.history({ verbose: true }).at(-1);
   if (last) {
     squareStyles[last.from] = { background: "rgba(255, 214, 0, 0.35)" };
     squareStyles[last.to] = { background: "rgba(255, 214, 0, 0.45)" };
   }
-  Object.assign(squareStyles, hintMarks.squareStyles);
+  Object.assign(squareStyles, hintMarks.squareStyles, draw.squareStyles);
   if (moveFrom) {
     squareStyles[moveFrom] = { background: "rgba(47, 111, 79, 0.5)" };
     for (const m of chess.moves({ square: moveFrom as never, verbose: true }))
@@ -249,9 +252,11 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
               onPieceDrop: ({ sourceSquare, targetSquare }) =>
                 targetSquare ? tryMove(sourceSquare, targetSquare) : false,
               onPieceDrag: () => setMoveFrom(null),
-              onSquareClick: ({ square }) => tap(square),
-              allowDragging: myTurn && !checking,
-              allowDrawingArrows: false,
+              onSquareClick: ({ square }) => {
+                if (!draw.tap(square)) tap(square);
+              },
+              allowDragging: myTurn && !checking && !draw.on,
+              allowDrawingArrows: true, // computer: rechtermuisknop slepen
               arrows,
               squareStyles,
               ...BOARD_STYLE,
@@ -264,16 +269,17 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
             style={{ width: `${(moves.length / total) * 100}%` }}
           />
         </div>
-        <div className={`flex min-h-12 items-center gap-2 px-1 ${finished ? "hidden" : ""}`}>
+        <div className="flex min-h-12 items-center gap-2 px-1">
           <p className="flex min-w-0 flex-1 items-center gap-2 text-sm" role="status" aria-live="polite">
             {checking && <LoaderCircle className="size-4 animate-spin text-[var(--muted)]" aria-hidden />}
-            <span>{status}</span>
-            {feedback && !finished && (
+            <span>{draw.on ? "Tik twee velden voor een pijl" : finished ? "" : status}</span>
+            {feedback && !finished && !draw.on && (
               <span className={`truncate ${feedbackColor}`}>
                 · {feedback.kind === "ok" ? `✓ ${feedback.text}` : feedback.text}
               </span>
             )}
           </p>
+          <DrawButton on={draw.on} onClick={draw.toggle} />
         </div>
         {!finished && <HintText hints={hints} level={hintLevel} />}
       </div>

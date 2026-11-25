@@ -28,6 +28,7 @@ import { buildHints, type Hints } from "@/lib/training/hints";
 import { CoachChat } from "./CoachChat";
 import { EvalBar, evalAt } from "./EvalBar";
 import { HintButton, HintText, hintBoard } from "./Hint";
+import { DrawButton, useArrowDrawing } from "./ArrowDrawing";
 import { EvalGraph } from "./EvalGraph";
 import { MoveFeedback } from "./MoveFeedback";
 import { LABEL_STYLE, MoveList, moveNumber } from "./MoveList";
@@ -114,7 +115,11 @@ function Setup({
           </span>
         </p>
         <div className="flex items-center gap-2">
-          <IconButton label="50 Elo lager" onClick={() => setElo(Math.max(ELO_MIN, elo - 50))} disabled={elo <= ELO_MIN}>
+          <IconButton
+            label="50 Elo lager"
+            onClick={() => setElo(Math.max(ELO_MIN, elo - 50))}
+            disabled={elo <= ELO_MIN}
+          >
             <Minus className="size-5" aria-hidden />
           </IconButton>
           <input
@@ -128,7 +133,11 @@ function Setup({
             aria-valuetext={`Elo ${elo}`}
             className="h-12 w-full sm:h-11"
           />
-          <IconButton label="50 Elo hoger" onClick={() => setElo(Math.min(ELO_MAX, elo + 50))} disabled={elo >= ELO_MAX}>
+          <IconButton
+            label="50 Elo hoger"
+            onClick={() => setElo(Math.min(ELO_MAX, elo + 50))}
+            disabled={elo >= ELO_MAX}
+          >
             <Plus className="size-5" aria-hidden />
           </IconButton>
         </div>
@@ -177,7 +186,9 @@ function Summary({
   return (
     <section className="space-y-4 pb-2" aria-label="Uitslag">
       <div className="flex items-end justify-between gap-3">
-        <h1 className={`text-3xl font-bold tracking-tight ${o === "gewonnen" ? "text-good" : ""}`}>{resultText(game)}</h1>
+        <h1 className={`text-3xl font-bold tracking-tight ${o === "gewonnen" ? "text-good" : ""}`}>
+          {resultText(game)}
+        </h1>
         {game.accuracy !== undefined && (
           <p className="num text-3xl font-bold" title="Nauwkeurigheid">
             {game.accuracy.toFixed(0)}%
@@ -204,7 +215,9 @@ function Summary({
                 onClick={() => onSelect(m.ply)}
                 className="flex min-h-12 w-full items-center gap-3 px-1 text-left text-sm"
               >
-                <span className={`w-6 shrink-0 font-bold ${LABEL_STYLE[m.label!].cls}`}>{LABEL_STYLE[m.label!].icon}</span>
+                <span className={`w-6 shrink-0 font-bold ${LABEL_STYLE[m.label!].cls}`}>
+                  {LABEL_STYLE[m.label!].icon}
+                </span>
                 <span className="san">{plyName(m)}</span>
                 <span className="min-w-0 flex-1 truncate text-[var(--muted)]">{CATEGORY_TEXT[m.category!]}</span>
                 <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
@@ -237,9 +250,10 @@ export function PlayView() {
     hints: null,
     loading: false,
   });
+  // Eigen pijlen en ringen; horen bij de getoonde stelling en verdwijnen na een zet.
+  const draw = useArrowDrawing(`${game?.id ?? ""}:${game?.plies.length ?? 0}:${selected ?? "live"}`);
   const [waitForContinue, setWaitForContinue] = useState(false);
   const [moveFrom, setMoveFrom] = useState<string | null>(null); // tik-om-te-zetten: gekozen stuk
-
 
   // Na afloop: terug naar boven, waar de samenvatting staat.
   const finishedNow = game?.status === "afgelopen";
@@ -515,6 +529,8 @@ export function PlayView() {
     Object.assign(squareStyles, marks.squareStyles);
     arrows.push(...marks.arrows);
   }
+  arrows.push(...draw.arrows);
+  Object.assign(squareStyles, draw.squareStyles);
   if (selection) {
     squareStyles[selection] = { background: "rgba(47, 111, 79, 0.5)" };
     for (const m of chessFromPlies(game.plies, game.startFen).moves({ square: selection as never, verbose: true })) {
@@ -593,17 +609,19 @@ export function PlayView() {
                 boardOrientation: game.playerColor === "w" ? "white" : "black",
                 onPieceDrop: ({ sourceSquare, targetSquare }) => onDrop(sourceSquare, targetSquare),
                 onPieceDrag: () => setMoveFrom(null),
-                onSquareClick: ({ square }) => onSquareTap(square),
-                allowDragging: canInteract,
+                onSquareClick: ({ square }) => {
+                  if (!draw.tap(square)) onSquareTap(square);
+                },
+                allowDragging: canInteract && !draw.on,
                 squareStyles,
                 arrows,
-                allowDrawingArrows: false,
+                allowDrawingArrows: true, // computer: rechtermuisknop slepen
                 ...BOARD_STYLE,
               }}
             />
           </div>
           <EvalBar score={evalAt(game.plies, game.playerColor, selected)} playerColor={game.playerColor} />
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <IconButton
               label="Vorige zet"
               shortcut={KEYS.prev}
@@ -622,35 +640,48 @@ export function PlayView() {
             >
               <ChevronRight className="size-5" aria-hidden />
             </IconButton>
-            <p className="flex min-w-0 flex-1 items-center gap-2 pl-1 text-sm" role="status" aria-live="polite">
+            <p className="flex min-w-24 flex-1 items-center gap-2 pl-1 text-sm" role="status" aria-live="polite">
               {status.spin && <LoaderCircle className="size-4 shrink-0 animate-spin text-[var(--muted)]" aria-hidden />}
-              <span className="truncate">{status.text}</span>
+              <span className="truncate">{draw.on ? "Tik twee velden voor een pijl" : status.text}</span>
             </p>
             {reviewing && !finished && (
-              <Button variant="primary" onClick={() => selectPly(null)} title="Terug naar de partij (Esc)" aria-keyshortcuts="Escape">
+              <Button
+                variant="primary"
+                onClick={() => selectPly(null)}
+                title="Terug naar de partij (Esc)"
+                aria-keyshortcuts="Escape"
+              >
                 Live
               </Button>
             )}
-            {!finished && !reviewing && (
-              <>
-                {game.mode === "training" && (
-                  <HintButton
-                    level={hintLevel}
-                    onClick={nextHint}
-                    disabled={!canInteract}
-                    busy={hint.loading && hint.at === game.plies.length}
-                  />
-                )}
-                {game.mode === "training" && !waitForContinue && (
-                  <IconButton label="Zet terugnemen" variant="ghost" onClick={takeBack} disabled={!!busy || !lastPlayerPly}>
-                    <Undo2 className="size-5" aria-hidden />
+            <div className="ml-auto flex items-center gap-1">
+              <DrawButton on={draw.on} onClick={draw.toggle} />
+              {!finished && !reviewing && (
+                <>
+                  {game.mode === "training" && (
+                    <HintButton
+                      level={hintLevel}
+                      onClick={nextHint}
+                      disabled={!canInteract}
+                      busy={hint.loading && hint.at === game.plies.length}
+                    />
+                  )}
+                  {game.mode === "training" && !waitForContinue && (
+                    <IconButton
+                      label="Zet terugnemen"
+                      variant="ghost"
+                      onClick={takeBack}
+                      disabled={!!busy || !lastPlayerPly}
+                    >
+                      <Undo2 className="size-5" aria-hidden />
+                    </IconButton>
+                  )}
+                  <IconButton label="Opgeven" variant="ghost" onClick={resign} className="text-[var(--muted)]">
+                    <Flag className="size-5" aria-hidden />
                   </IconButton>
-                )}
-                <IconButton label="Opgeven" variant="ghost" onClick={resign} className="text-[var(--muted)]">
-                  <Flag className="size-5" aria-hidden />
-                </IconButton>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
 

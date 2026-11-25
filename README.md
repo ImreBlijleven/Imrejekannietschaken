@@ -14,6 +14,8 @@ je vaak maakt.
   enz.) en opgeslagen. Op de pagina *Patronen* zie je je zwakke punten en kun je ze bespreken.
 - **Overzicht na de partij**: nauwkeurigheid, grafiek van je winstkans, je grootste fouten met pijlen op het bord.
 - **Winstkansbalk** onder het bord die na elke zet meeschuift.
+- **Pijlen tekenen** (potlood): tik twee velden voor een pijl, of twee keer hetzelfde veld voor een ring. Op de
+  computer kan het ook met rechtermuisknop slepen. De tekening verdwijnt na je volgende zet.
 - **Hints** (lampje) in de trainingsmodus en bij Oefenen: idee → stuk → zet, bepaald met vaste regels
   (`src/lib/training/hints.ts`), niet door het taalmodel.
 - **Oefenen**: openingen met wit of zwart (bv. *Tegen het Koningsindisch* met de Damegambiet-opzet). De computer
