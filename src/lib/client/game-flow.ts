@@ -9,6 +9,7 @@ import { getRepository } from "../db/dexie-repository";
 import { newId, now } from "../db/repository";
 import { SCHEMA_VERSION, type GameMode, type GameRecord, type PlyRecord } from "../db/types";
 import { analyse } from "./analysis";
+import { SURVIVE_MOVES } from "../training/drills";
 
 // Stockfish ondersteunt UCI_Elo van 1320 t/m 3190 (UCI-optie "UCI_Elo").
 // https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html
@@ -197,16 +198,30 @@ export async function opponentMove(
 /** Zet status/uitslag als de partij voorbij is. Geeft true als de partij klaar is. */
 export function finishIfOver(game: GameRecord): boolean {
   const chess = chessFromPlies(game.plies, game.startFen);
-  if (!chess.isGameOver()) return false;
+  if (!chess.isGameOver()) {
+    // Doel "remise houden": geslaagd na genoeg overleefde eigen zetten.
+    if (game.goal === "remise" && survivedMoves(game) >= SURVIVE_MOVES) {
+      game.result = "1/2-1/2";
+      game.endReason = "doel";
+      finalize(game);
+      return true;
+    }
+    return false;
+  }
   if (chess.isCheckmate()) {
     game.result = chess.turn() === "w" ? "0-1" : "1-0";
     game.endReason = "mat";
   } else {
     game.result = "1/2-1/2";
-    game.endReason = "remise";
+    game.endReason = game.goal === "remise" ? "doel" : "remise";
   }
   finalize(game);
   return true;
+}
+
+/** Aantal eigen zetten in deze partij (voor het doel "remise houden"). */
+export function survivedMoves(game: GameRecord): number {
+  return game.plies.filter((p) => p.color === game.playerColor && !p.book).length;
 }
 
 export function finalize(game: GameRecord) {
@@ -225,11 +240,11 @@ export function outcome(game: GameRecord): Outcome {
 }
 
 export function resultText(game: GameRecord): string {
+  if (game.endReason === "doel") return game.goal === "remise" ? "Remise gehouden" : "Doel bereikt";
   const o = outcome(game);
   if (o === "remise") return "Remise";
   if (o === "afgebroken") return "Afgebroken";
-  if (o === "gewonnen")
-    return game.endReason === "doel" ? "Doel bereikt" : game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
+  if (o === "gewonnen") return game.endReason === "mat" ? "Gewonnen met mat" : "Gewonnen";
   if (game.endReason === "opgegeven") return "Opgegeven";
   return game.endReason === "mat" ? "Verloren door mat" : "Verloren";
 }

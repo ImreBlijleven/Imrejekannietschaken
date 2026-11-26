@@ -25,7 +25,10 @@ je vaak maakt.
   steeds specifieker naarmate de zetten die bepalen. Het lampje geeft hints in drie stappen: een idee
   ("Er is een paardvork mogelijk", "Hoe kun je druk zetten op f7?"), dan het stuk, dan de zet. De eerste hint
   per zet telt als fout. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
-  Daarnaast eindspelsituaties met een doel (mat zetten, promoveren).
+  Daarnaast eindspelsituaties met een doel: mat zetten, promoveren of **remise houden** (geslaagd bij remise of na
+  30 overleefde zetten tegen Stockfish op volle sterkte), o.a. Lucena, Philidor, oppositie en mat met twee lopers.
+- **Valstrikken**: de tegenstander loopt in een bekende val (Legal, Blackburne Shilling, Noah's Ark, Lasker, Englund,
+  Olifantenval) en jij straft af; of je ontwijkt er een (herdersmat afslaan).
 - **Herkansing**: je eigen fouten en blunders komen terug als opgave ("vind de betere zet"). Met gespreide
   herhaling: goed → na 1, 3, 7, 16… dagen terug; fout → binnen 10 minuten opnieuw.
 - **Tactiek en Verdedigen**: 1.506 puzzels uit de Lichess-puzzeldatabase (CC0) in 13 thema's (vork, penning, spies,

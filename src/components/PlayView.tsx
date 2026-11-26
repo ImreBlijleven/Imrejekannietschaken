@@ -20,11 +20,13 @@ import {
   outcome,
   resultText,
   strengthName,
+  survivedMoves,
 } from "@/lib/client/game-flow";
 import { analyse, buildFacts } from "@/lib/client/analysis";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { uciLineToSan, uciToMove } from "@/lib/chess/uci";
 import { buildHints, type Hints } from "@/lib/training/hints";
+import { SURVIVE_MOVES } from "@/lib/training/drills";
 import { CoachChat } from "./CoachChat";
 import { EvalBar, evalAt } from "./EvalBar";
 import { HintButton, HintText, hintBoard } from "./Hint";
@@ -564,6 +566,16 @@ export function PlayView() {
     }
   }
 
+  // Doel van een oefensituatie, kort achter de status.
+  const goalText =
+    game.goal === "remise"
+      ? ` · houd nog ${Math.max(0, SURVIVE_MOVES - survivedMoves(game))} zetten vol`
+      : game.goal === "mat"
+        ? " · zet mat"
+        : game.goal === "promoveren"
+          ? " · promoveer"
+          : "";
+
   // Status onder het bord: kort, altijd duidelijk wie aan zet is.
   const status = finished
     ? { text: resultText(game), spin: false }
@@ -576,7 +588,7 @@ export function PlayView() {
           : waitForContinue
             ? { text: "Pauze", spin: false }
             : playerToMove
-              ? { text: "Jij aan zet", spin: false }
+              ? { text: `Jij aan zet${goalText}`, spin: false }
               : { text: "Computer aan zet", spin: false };
 
   const pauseActions = waitForContinue ? (

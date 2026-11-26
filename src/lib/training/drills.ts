@@ -14,6 +14,8 @@ export interface OpeningDrill {
   preview?: string;
   /** Benoemde varianten: de naam geldt zodra de gespeelde zetten met `moves` beginnen. */
   variations: Variation[];
+  /** Valstrik: je speelt altijd deze kant; "afstraffen" = de fout benutten, "verdedigen" = een val ontwijken. */
+  trap?: { side: Side; goal?: "afstraffen" | "verdedigen" };
 }
 
 export interface Variation {
@@ -27,8 +29,11 @@ export interface PositionDrill {
   name: string;
   fen: string;
   side: Side;
-  goal: "mat" | "promoveren";
+  goal: "mat" | "promoveren" | "remise";
 }
+
+/** Bij "remise houden" slaag je ook als je zoveel eigen zetten overleeft. */
+export const SURVIVE_MOVES = 30;
 
 export type Drill = OpeningDrill | PositionDrill;
 
@@ -190,6 +195,88 @@ export const OPENINGS: OpeningDrill[] = [
   },
 ];
 
+export const TRAPS: OpeningDrill[] = [
+  {
+    kind: "opening",
+    id: "val-legal",
+    names: { w: "Legal-val" },
+    trap: { side: "w" },
+    lines: [l("e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 Bxd1 Bxf7+ Ke7 Nd5#"), l("e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 dxe5 Qxg4")],
+    variations: [
+      v("e4 e5 Nf3 d6 Bc4 Bg4", "Philidor-verdediging"),
+      v("e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5", "Legal-val: wit offert de dame"),
+      v("e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 Bxd1", "Legal-val: zwart pakt de dame"),
+    ],
+  },
+  {
+    kind: "opening",
+    id: "val-herdersmat",
+    names: { b: "Herdersmat afslaan" },
+    trap: { side: "b", goal: "verdedigen" },
+    lines: [l("e4 e5 Bc4 Nc6 Qh5 g6 Qf3 Nf6"), l("e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6")],
+    variations: [v("e4 e5 Bc4 Nc6 Qh5", "Wit mikt op f7"), v("e4 e5 Qh5", "Vroege damezet")],
+  },
+  {
+    kind: "opening",
+    id: "val-blackburne",
+    names: { b: "Blackburne Shilling-val" },
+    trap: { side: "b" },
+    lines: [l("e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5 Qg5 Nxf7 Qxg2 Rf1 Qxe4+ Be2 Nf3#")],
+    variations: [
+      v("e4 e5 Nf3 Nc6 Bc4 Nd4", "Blackburne Shilling-gambiet"),
+      v("e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5", "Blackburne Shilling-val: wit pakt de pion"),
+    ],
+  },
+  {
+    kind: "opening",
+    id: "val-noah",
+    names: { b: "Noah's Ark-val" },
+    trap: { side: "b" },
+    lines: [l("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 d6 d4 b5 Bb3 Nxd4 Nxd4 exd4 Qxd4 c5 Qd5 Be6 Qc6+ Bd7 Qd5 c4")],
+    variations: [
+      v("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 d6", "Spaans, Steinitz-verdediging (uitgesteld)"),
+      v("e4 e5 Nf3 Nc6 Bb5 a6 Ba4 d6 d4 b5 Bb3 Nxd4 Nxd4 exd4 Qxd4", "Noah's Ark-val: wit slaat terug op d4"),
+    ],
+  },
+  {
+    kind: "opening",
+    id: "val-lasker",
+    names: { b: "Lasker-val (Albin-tegengambiet)" },
+    trap: { side: "b" },
+    lines: [
+      l("d4 d5 c4 e5 dxe5 d4 e3 Bb4+ Bd2 dxe3 Bxb4 exf2+ Ke2 fxg1=N+ Rxg1 Bg4+"),
+      l("d4 d5 c4 e5 dxe5 d4 e3 Bb4+ Bd2 dxe3 Bxb4 exf2+ Ke2 fxg1=N+ Ke1 Qh4+"),
+    ],
+    variations: [
+      v("d4 d5 c4 e5", "Albin-tegengambiet"),
+      v("d4 d5 c4 e5 dxe5 d4 e3", "Lasker-val"),
+      v("d4 d5 c4 e5 dxe5 d4 e3 Bb4+ Bd2 dxe3 Bxb4 exf2+ Ke2 fxg1=N+", "Lasker-val: promotie tot paard"),
+    ],
+  },
+  {
+    kind: "opening",
+    id: "val-englund",
+    names: { b: "Englund-val" },
+    trap: { side: "b" },
+    lines: [l("d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Bd2 Qxb2 Bc3 Bb4 Qd2 Bxc3 Qxc3 Qc1#")],
+    variations: [
+      v("d4 e5", "Englund-gambiet"),
+      v("d4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Bd2 Qxb2 Bc3", "Englund-val: wit valt de dame aan"),
+    ],
+  },
+  {
+    kind: "opening",
+    id: "val-olifant",
+    names: { b: "Olifantenval" },
+    trap: { side: "b" },
+    lines: [l("d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5 Nxd5 Bxd8 Bb4+ Qd2 Bxd2+ Kxd2 Kxd8")],
+    variations: [
+      v("d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7", "Damegambiet geweigerd"),
+      v("d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5", "Olifantenval: wit pakt op d5"),
+    ],
+  },
+];
+
 export const POSITIONS: PositionDrill[] = [
   {
     kind: "position",
@@ -214,6 +301,46 @@ export const POSITIONS: PositionDrill[] = [
     fen: "4k3/8/4K3/4P3/8/8/8/8 w - - 0 1",
     side: "w",
     goal: "promoveren",
+  },
+  {
+    kind: "position",
+    id: "lucena",
+    name: "Lucena: toren met pion winnen",
+    fen: "1K1k4/1P6/8/8/8/8/r7/2R5 w - - 0 1",
+    side: "w",
+    goal: "promoveren",
+  },
+  {
+    kind: "position",
+    id: "dame-tegen-pion",
+    name: "Dame tegen pion op de 7e rij",
+    fen: "7Q/8/8/8/8/1K6/4pk2/8 w - - 0 1",
+    side: "w",
+    goal: "mat",
+  },
+  {
+    kind: "position",
+    id: "mat-twee-lopers",
+    name: "Mat met twee lopers",
+    fen: "8/8/8/4k3/8/8/8/2B1KB2 w - - 0 1",
+    side: "w",
+    goal: "mat",
+  },
+  {
+    kind: "position",
+    id: "philidor",
+    name: "Philidor: toren-eindspel remise houden",
+    fen: "4k3/8/r7/4PK2/8/8/8/1R6 b - - 0 1",
+    side: "b",
+    goal: "remise",
+  },
+  {
+    kind: "position",
+    id: "oppositie-verdedigen",
+    name: "Oppositie: koning voor de pion",
+    fen: "8/8/8/4k3/8/8/4P3/4K3 b - - 0 1",
+    side: "b",
+    goal: "remise",
   },
 ];
 

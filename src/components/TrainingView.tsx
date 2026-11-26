@@ -9,6 +9,7 @@ import { getRepository } from "@/lib/db/dexie-repository";
 import type { DrillRecord } from "@/lib/db/types";
 import {
   OPENINGS,
+  TRAPS,
   POSITIONS,
   currentVariation,
   firstMoves,
@@ -300,7 +301,13 @@ function OpeningDrillView({ drill, side, onExit }: { drill: OpeningDrill; side: 
           <section className="space-y-4" aria-label="Resultaat">
             <div className="flex items-center justify-between">
               <p className={`text-2xl font-bold ${mistakes === 0 ? "text-good" : ""}`}>
-                {mistakes === 0 ? "Lijn gekend" : `${mistakes} ${mistakes === 1 ? "fout" : "fouten"}`}
+                {mistakes > 0
+                  ? `${mistakes} ${mistakes === 1 ? "fout" : "fouten"}`
+                  : drill.trap
+                    ? drill.trap.goal === "verdedigen"
+                      ? "Val ontweken"
+                      : "Val afgestraft"
+                    : "Lijn gekend"}
               </p>
               {result && <Stars n={Math.min(3, result.streak)} />}
             </div>
@@ -396,7 +403,8 @@ export function TrainingView() {
     }
   };
 
-  if (active) return <OpeningDrillView drill={active} side={side} onExit={() => setActive(null)} />;
+  if (active)
+    return <OpeningDrillView drill={active} side={active.trap?.side ?? side} onExit={() => setActive(null)} />;
   if (session) return <PuzzleSession title={session.title} load={session.load} onExit={() => setSession(null)} />;
 
   /** Puzzelsessie in één of meer thema's, rond je puzzelrating. */
@@ -496,6 +504,34 @@ export function TrainingView() {
         </div>
       </section>
 
+      <section className="space-y-2" aria-label="Valstrikken">
+        <h2 className="text-sm text-[var(--muted)]">Valstrikken</h2>
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+          {TRAPS.map((t) => {
+            const tSide = t.trap!.side;
+            const rec = stats.get(`${t.id}:${tSide}`);
+            return (
+              <li key={t.id}>
+                <button
+                  onClick={() => setActive(t)}
+                  className="flex min-h-16 w-full items-center gap-3 px-1 py-2.5 text-left"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{openingName(t, tSide)}</span>
+                    <span className="block truncate text-sm text-[var(--muted)]">
+                      Met {tSide === "w" ? "wit" : "zwart"} ·{" "}
+                      {t.trap!.goal === "verdedigen" ? "ontwijk de val" : "straf af"}
+                    </span>
+                  </span>
+                  <Stars n={Math.min(3, rec?.streak ?? 0)} />
+                  <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       <section className="space-y-3" aria-label="Openingen">
         <h2 className="text-sm text-[var(--muted)]">Openingen</h2>
         <Segmented
@@ -540,7 +576,9 @@ export function TrainingView() {
                 className="flex min-h-14 w-full items-center gap-3 px-1 text-left disabled:opacity-60"
               >
                 <span className="min-w-0 flex-1 font-medium">{p.name}</span>
-                <span className="text-sm text-[var(--muted)]">{p.goal === "mat" ? "Zet mat" : "Promoveer"}</span>
+                <span className="text-sm text-[var(--muted)]">
+                  {p.goal === "mat" ? "Zet mat" : p.goal === "remise" ? "Houd remise" : "Promoveer"}
+                </span>
                 {starting === p.id ? (
                   <LoaderCircle className="size-4 animate-spin text-[var(--muted)]" aria-hidden />
                 ) : (
