@@ -22,6 +22,17 @@ import { analyse, buildFacts } from "@/lib/client/analysis";
 import { classify } from "@/lib/chess/evaluation";
 import { ELO_MAX, ELO_MIN, newGame } from "@/lib/client/game-flow";
 import { CoachChat } from "./CoachChat";
+import { PuzzleSession } from "./PuzzleSession";
+import {
+  THEME_NAMES,
+  THEMES_FOR_PATTERN,
+  dueMistakeCount,
+  loadPuzzleRating,
+  loadPuzzles,
+  pickMistakes,
+  pickPuzzles,
+  type PuzzleItem,
+} from "@/lib/training/puzzles";
 import { HintButton, HintText, hintBoard } from "./Hint";
 import { DrawButton, useArrowDrawing } from "./ArrowDrawing";
 import { buildHints } from "@/lib/training/hints";
@@ -351,14 +362,30 @@ export function TrainingView() {
   const side = chosenSide ?? storedSide;
   const [stats, setStats] = useState<Map<string, DrillRecord>>(new Map());
   const [active, setActive] = useState<OpeningDrill | null>(null);
+  const [session, setSession] = useState<{ title: string; load: () => Promise<PuzzleItem[]> } | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  const [dueMistakes, setDueMistakes] = useState<number | null>(null);
+  const [forYou, setForYou] = useState<string[]>([]);
+  // Puzzelrating (op de server: standaardwaarde, geen hydration-verschil).
+  const puzzleRating = useSyncExternalStore(
+    () => () => {},
+    () => loadPuzzleRating(),
+    () => 1200,
+  );
 
   useEffect(() => {
-    if (active) return;
-    getRepository()
-      .listDrills()
-      .then((list) => setStats(new Map(list.map((d) => [d.id, d]))));
-  }, [active]);
+    if (active || session) return;
+    const repo = getRepository();
+    repo.listDrills().then((list) => setStats(new Map(list.map((d) => [d.id, d]))));
+    Promise.all([repo.listMistakes(), repo.listReviews("fout"), repo.patternStats()]).then(
+      ([mistakes, reviews, stats]) => {
+        setDueMistakes(dueMistakeCount(mistakes, new Map(reviews.map((r) => [r.id, r]))));
+        // Thema's die passen bij je twee vaakste foutpatronen.
+        const themes = [...new Set(stats.slice(0, 2).flatMap((st) => THEMES_FOR_PATTERN[st.category] ?? []))];
+        setForYou(themes.slice(0, 3));
+      },
+    );
+  }, [active, session]);
 
   const setSide = (s: Side) => {
     setSideState(s);
@@ -370,6 +397,32 @@ export function TrainingView() {
   };
 
   if (active) return <OpeningDrillView drill={active} side={side} onExit={() => setActive(null)} />;
+  if (session) return <PuzzleSession title={session.title} load={session.load} onExit={() => setSession(null)} />;
+
+  /** Puzzelsessie in één of meer thema's, rond je puzzelrating. */
+  function startThemes(title: string, themes: string[]) {
+    setSession({
+      title,
+      load: async () => {
+        const [all, reviews] = await Promise.all([loadPuzzles(), getRepository().listReviews("puzzel")]);
+        return pickPuzzles(all, themes, loadPuzzleRating(), new Map(reviews.map((r) => [r.id, r])));
+      },
+    });
+  }
+
+  function startHerkansing() {
+    setSession({
+      title: "Herkansing",
+      load: async () => {
+        const repo = getRepository();
+        const [mistakes, reviews] = await Promise.all([repo.listMistakes(), repo.listReviews("fout")]);
+        return pickMistakes(mistakes, new Map(reviews.map((r) => [r.id, r])));
+      },
+    });
+  }
+
+  const tacticThemes = Object.keys(THEME_NAMES).filter((t) => t !== "defensiveMove");
+  const row = "flex min-h-16 w-full items-center gap-3 px-1 py-2.5 text-left disabled:opacity-60";
 
   async function startPosition(p: PositionDrill) {
     setStarting(p.id);
@@ -380,7 +433,71 @@ export function TrainingView() {
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Oefenen</h1>
 
+      <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]" aria-label="Voor jou">
+        <li>
+          <button onClick={startHerkansing} disabled={!dueMistakes} className={row}>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Herkansing</span>
+              <span className="block text-sm text-[var(--muted)]">
+                {dueMistakes === null
+                  ? "Je eigen fouten"
+                  : dueMistakes > 0
+                    ? `${dueMistakes} ${dueMistakes === 1 ? "fout" : "fouten"} uit je partijen te herhalen`
+                    : "Niets te herhalen"}
+              </span>
+            </span>
+            {dueMistakes ? (
+              <span className="num rounded-full bg-[var(--accent)] px-2 py-0.5 text-xs font-semibold text-[var(--on-accent)]">
+                {dueMistakes}
+              </span>
+            ) : null}
+            <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+          </button>
+        </li>
+        {forYou.length > 0 && (
+          <li>
+            <button onClick={() => startThemes("Voor jou", forYou)} className={row}>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Voor jou</span>
+                <span className="block truncate text-sm text-[var(--muted)]">
+                  {forYou.map((t) => THEME_NAMES[t]).join(", ")} · past bij je foutpatronen
+                </span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+            </button>
+          </li>
+        )}
+        <li>
+          <button onClick={() => startThemes("Verdedigen", ["defensiveMove"])} className={row}>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Verdedigen</span>
+              <span className="block text-sm text-[var(--muted)]">Vind de enige zet die houdt</span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+          </button>
+        </li>
+      </ul>
+
+      <section className="space-y-2" aria-label="Tactiek">
+        <h2 className="flex items-baseline justify-between text-sm text-[var(--muted)]">
+          Tactiek
+          <span className="num">rating {puzzleRating}</span>
+        </h2>
+        <div className="grid grid-cols-2 gap-2">
+          {tacticThemes.map((t) => (
+            <button
+              key={t}
+              onClick={() => startThemes(THEME_NAMES[t], [t])}
+              className="min-h-12 rounded-lg bg-[var(--panel)] px-3 text-left text-sm font-medium hover:bg-[var(--border)]"
+            >
+              {THEME_NAMES[t]}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section className="space-y-3" aria-label="Openingen">
+        <h2 className="text-sm text-[var(--muted)]">Openingen</h2>
         <Segmented
           label="Kleur"
           value={side}

@@ -26,6 +26,10 @@ je vaak maakt.
   ("Er is een paardvork mogelijk", "Hoe kun je druk zetten op f7?"), dan het stuk, dan de zet. De eerste hint
   per zet telt als fout. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
   Daarnaast eindspelsituaties met een doel (mat zetten, promoveren).
+- **Herkansing**: je eigen fouten en blunders komen terug als opgave ("vind de betere zet"). Met gespreide
+  herhaling: goed → na 1, 3, 7, 16… dagen terug; fout → binnen 10 minuten opnieuw.
+- **Tactiek en Verdedigen**: 1.506 puzzels uit de Lichess-puzzeldatabase (CC0) in 13 thema's (vork, penning, spies,
+  mat in 2, verdedigen, …), gekozen rond je puzzelrating. "Voor jou" kiest thema's die bij je foutpatronen passen.
 - **Backup**: export/import als JSON-bestand.
 
 ## Hoe de coach eerlijk blijft
@@ -98,6 +102,12 @@ vormen ze een boom. `variations` geeft namen aan beginreeksen; de langste passen
 ```bash
 npm run check-drills   # elke zet legaal en geen fout volgens Stockfish; situaties winnend
 ```
+
+## Puzzels bijwerken
+
+`public/puzzles.json` is een selectie uit de [Lichess-puzzeldatabase](https://database.lichess.org/) (CC0). Opnieuw
+selecteren: zie de uitleg bovenin `scripts/select-puzzles.py`. Controleren met `npm run check-puzzles` (steekproef:
+klopt de oplossing volgens onze Stockfish).
 
 ## Online zetten (Vercel)
 

@@ -2,7 +2,7 @@
 // (nu IndexedDB, later bv. Supabase) kan vervangen worden zonder de UI te wijzigen.
 
 import type { Category } from "../chess/patterns";
-import type { DrillRecord, ExportFile, GameRecord, MistakeRecord } from "./types";
+import type { DrillRecord, ExportFile, GameRecord, MistakeRecord, ReviewRecord } from "./types";
 
 export interface PatternStat {
   category: Category;
@@ -26,8 +26,11 @@ export interface Repository {
   listDrills(): Promise<DrillRecord[]>;
   recordDrill(drillId: string, side: "w" | "b", mistakes: number): Promise<DrillRecord>;
 
+  listReviews(kind?: ReviewRecord["kind"]): Promise<ReviewRecord[]>;
+  recordReview(id: string, kind: ReviewRecord["kind"], correct: boolean, themes?: string[]): Promise<ReviewRecord>;
+
   exportAll(): Promise<ExportFile>;
-  importAll(file: ExportFile): Promise<{ games: number; mistakes: number; drills: number }>;
+  importAll(file: ExportFile): Promise<{ games: number; mistakes: number; drills: number; reviews: number }>;
 }
 
 export function newId(): string {

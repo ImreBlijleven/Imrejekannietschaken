@@ -5,13 +5,22 @@
 import Dexie, { type Table } from "dexie";
 import type { Repository, PatternStat } from "./repository";
 import { now } from "./repository";
-import { SCHEMA_VERSION, type DrillRecord, type ExportFile, type GameRecord, type MistakeRecord } from "./types";
+import {
+  SCHEMA_VERSION,
+  type DrillRecord,
+  type ExportFile,
+  type GameRecord,
+  type MistakeRecord,
+  type ReviewRecord,
+} from "./types";
+import { nextSchedule } from "../training/srs";
 import type { Category } from "../chess/patterns";
 
 class CoachDb extends Dexie {
   games!: Table<GameRecord, string>;
   mistakes!: Table<MistakeRecord, string>;
   drills!: Table<DrillRecord, string>;
+  reviews!: Table<ReviewRecord, string>;
 
   constructor() {
     super("schaakcoach");
@@ -22,6 +31,10 @@ class CoachDb extends Dexie {
     // v2: voortgang van oefeningen
     this.version(2).stores({
       drills: "id, updatedAt",
+    });
+    // v3: herhaling van eigen fouten en puzzels
+    this.version(3).stores({
+      reviews: "id, kind, due, updatedAt",
     });
   }
 }
@@ -123,6 +136,32 @@ export class DexieRepository implements Repository {
     return rec;
   }
 
+  async listReviews(kind?: ReviewRecord["kind"]) {
+    const list = kind ? await this.db.reviews.where("kind").equals(kind).toArray() : await this.db.reviews.toArray();
+    return list.filter((r) => !r.deleted);
+  }
+
+  async recordReview(id: string, kind: ReviewRecord["kind"], correct: boolean, themes?: string[]) {
+    const ts = now();
+    const prev = await this.db.reviews.get(id);
+    const { streak, due } = nextSchedule(prev?.streak ?? 0, correct);
+    const rec: ReviewRecord = {
+      id,
+      kind,
+      createdAt: prev?.createdAt ?? ts,
+      updatedAt: ts,
+      schemaVersion: SCHEMA_VERSION,
+      attempts: (prev?.attempts ?? 0) + 1,
+      correct: (prev?.correct ?? 0) + (correct ? 1 : 0),
+      streak,
+      due,
+      lastResult: correct ? "goed" : "fout",
+      themes: themes ?? prev?.themes,
+    };
+    await this.db.reviews.put(rec);
+    return rec;
+  }
+
   async exportAll(): Promise<ExportFile> {
     return {
       app: "schaakcoach",
@@ -131,6 +170,7 @@ export class DexieRepository implements Repository {
       games: await this.db.games.toArray(),
       mistakes: await this.db.mistakes.toArray(),
       drills: await this.db.drills.toArray(),
+      reviews: await this.db.reviews.toArray(),
     };
   }
 
@@ -141,7 +181,8 @@ export class DexieRepository implements Repository {
     let games = 0;
     let mistakes = 0;
     let drills = 0;
-    await this.db.transaction("rw", this.db.games, this.db.mistakes, this.db.drills, async () => {
+    let reviews = 0;
+    await this.db.transaction("rw", [this.db.games, this.db.mistakes, this.db.drills, this.db.reviews], async () => {
       for (const g of file.games) {
         if (newer(await this.db.games.get(g.id), g)) {
           await this.db.games.put(g);
@@ -160,8 +201,14 @@ export class DexieRepository implements Repository {
           drills++;
         }
       }
+      for (const r of file.reviews ?? []) {
+        if (newer(await this.db.reviews.get(r.id), r)) {
+          await this.db.reviews.put(r);
+          reviews++;
+        }
+      }
     });
-    return { games, mistakes, drills };
+    return { games, mistakes, drills, reviews };
   }
 }
 

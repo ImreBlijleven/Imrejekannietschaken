@@ -10,7 +10,8 @@
     "postinstall": "node scripts/copy-stockfish.mjs",
     "testset": "tsx --env-file-if-exists=.env.local scripts/testset.mts",
     "typecheck": "tsc --noEmit",
-    "check-drills": "tsx scripts/check-drills.mts"
+    "check-drills": "tsx scripts/check-drills.mts",
+    "check-puzzles": "tsx scripts/check-puzzles.mts"
   },
   "dependencies": {
     "chess.js": "^1.4.0",

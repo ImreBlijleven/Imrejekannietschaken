@@ -82,6 +82,17 @@ export interface DrillRecord extends SyncFields {
   lastPracticed: string;
 }
 
+/** Herhaling van één oefenitem: een eigen fout ("fout:<id>") of een puzzel ("puzzel:<lichess-id>"). */
+export interface ReviewRecord extends SyncFields {
+  kind: "fout" | "puzzel";
+  attempts: number;
+  correct: number;
+  streak: number; // keer op rij goed
+  due: string; // ISO: wanneer hij weer aan de beurt is
+  lastResult: "goed" | "fout";
+  themes?: string[]; // voor puzzels: Lichess-thema's
+}
+
 export interface ExportFile {
   app: "schaakcoach";
   schemaVersion: number;
@@ -89,4 +100,5 @@ export interface ExportFile {
   games: GameRecord[];
   mistakes: MistakeRecord[];
   drills?: DrillRecord[];
+  reviews?: ReviewRecord[];
 }
