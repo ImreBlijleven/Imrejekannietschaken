@@ -26,7 +26,7 @@ import { analyse, buildFacts } from "@/lib/client/analysis";
 import { CATEGORY_TEXT } from "@/lib/chess/patterns";
 import { uciLineToSan, uciToMove } from "@/lib/chess/uci";
 import { buildHints, type Hints } from "@/lib/training/hints";
-import { SURVIVE_MOVES } from "@/lib/training/drills";
+import { PLAN_MOVES, SURVIVE_MOVES } from "@/lib/training/drills";
 import { CoachChat } from "./CoachChat";
 import { EvalBar, evalAt } from "./EvalBar";
 import { HintButton, HintText, hintBoard } from "./Hint";
@@ -568,7 +568,9 @@ export function PlayView() {
 
   // Doel van een oefensituatie, kort achter de status.
   const goalText =
-    game.goal === "remise"
+    game.goal === "plan"
+      ? ` · nog ${Math.max(0, PLAN_MOVES - survivedMoves(game))} zetten`
+      : game.goal === "remise"
       ? ` · houd nog ${Math.max(0, SURVIVE_MOVES - survivedMoves(game))} zetten vol`
       : game.goal === "mat"
         ? " · zet mat"

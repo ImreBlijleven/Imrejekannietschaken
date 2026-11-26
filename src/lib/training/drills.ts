@@ -32,6 +32,22 @@ export interface PositionDrill {
   goal: "mat" | "promoveren" | "remise";
 }
 
+/**
+ * Middenspel-plan: een typische stelling (ontstaan uit een opening). Je speelt PLAN_MOVES zetten tegen Stockfish
+ * en slaagt als je stelling niet duidelijk slechter is geworden.
+ */
+export interface PlanDrill {
+  kind: "plan";
+  id: string;
+  name: string;
+  moves: string[]; // zetten vanaf de beginstelling tot de oefenstelling
+  side: Side;
+}
+
+export const PLAN_MOVES = 10;
+/** Maximaal verlies aan winstkans (procentpunten) om het plan als geslaagd te tellen. */
+export const PLAN_MAX_DROP = 10;
+
 /** Bij "remise houden" slaag je ook als je zoveel eigen zetten overleeft. */
 export const SURVIVE_MOVES = 30;
 
@@ -274,6 +290,51 @@ export const TRAPS: OpeningDrill[] = [
       v("d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7", "Damegambiet geweigerd"),
       v("d4 d5 c4 e6 Nc3 Nf6 Bg5 Nbd7 cxd5 exd5 Nxd5", "Olifantenval: wit pakt op d5"),
     ],
+  },
+];
+
+export const PLANS: PlanDrill[] = [
+  {
+    kind: "plan",
+    id: "plan-iqp-aanval",
+    name: "Geïsoleerde damepion: aanvallen",
+    moves: l("e4 c6 d4 d5 exd5 cxd5 c4 Nf6 Nc3 e6 Nf3 Be7 cxd5 Nxd5 Bd3 Nc6 O-O O-O"),
+    side: "w",
+  },
+  {
+    kind: "plan",
+    id: "plan-iqp-blokkade",
+    name: "Geïsoleerde damepion: blokkeren",
+    moves: l("e4 c6 d4 d5 exd5 cxd5 c4 Nf6 Nc3 e6 Nf3 Be7 cxd5 Nxd5 Bd3 Nc6 O-O O-O Re1"),
+    side: "b",
+  },
+  {
+    kind: "plan",
+    id: "plan-minderheidsaanval",
+    name: "Minderheidsaanval (Carlsbad-structuur)",
+    moves: l("d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5 Bg5 Be7 e3 c6 Bd3 Nbd7 Qc2 O-O Nf3 Re8 O-O Nf8"),
+    side: "w",
+  },
+  {
+    kind: "plan",
+    id: "plan-draak",
+    name: "Aanval op de koning (Drakenvariant)",
+    moves: l("e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O Qd2 Nc6"),
+    side: "w",
+  },
+  {
+    kind: "plan",
+    id: "plan-frans-d4",
+    name: "Frans doorschuif: druk op d4",
+    moves: l("e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 Be2"),
+    side: "b",
+  },
+  {
+    kind: "plan",
+    id: "plan-koningsindisch",
+    name: "Koningsindisch: aanval op de koningsvleugel",
+    moves: l("d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7 Ne1"),
+    side: "b",
   },
 ];
 

@@ -30,10 +30,12 @@ export function PuzzleSession({
   title,
   load,
   onExit,
+  onComplete,
 }: {
   title: string;
   load: () => Promise<PuzzleItem[]>;
   onExit: () => void;
+  onComplete?: () => void; // ronde helemaal afgemaakt
 }) {
   const [items, setItems] = useState<PuzzleItem[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -94,6 +96,7 @@ export function PuzzleSession({
   }, [phase, item]);
 
   function begin(i: number) {
+    if (items && i >= items.length) onComplete?.();
     setIndex(i);
     setMoves([]);
     setFailed(false);

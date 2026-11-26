@@ -45,8 +45,9 @@ export interface GameRecord extends SyncFields {
   mode: GameMode;
   status: GameStatus;
   result?: string; // "1-0", "0-1", "1/2-1/2", "*"
-  endReason?: "mat" | "remise" | "opgegeven" | "afgebroken" | "doel";
-  goal?: "mat" | "promoveren" | "remise"; // doel van een oefensituatie
+  endReason?: "mat" | "remise" | "opgegeven" | "afgebroken" | "doel" | "mislukt";
+  goal?: "mat" | "promoveren" | "remise" | "plan"; // doel van een oefensituatie
+  goalBaseline?: number; // winstkans (%) bij de start van een plan-oefening
   hints?: boolean; // hints toegestaan in een partij "Zonder hulp"
   hintsUsed?: number; // aantal stellingen waarin je een hint opvroeg
   pgn: string;

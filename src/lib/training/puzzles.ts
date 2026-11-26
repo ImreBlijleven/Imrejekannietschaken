@@ -164,3 +164,25 @@ export function updatePuzzleRating(current: number, puzzleRating: number, solved
   }
   return next;
 }
+
+/**
+ * Dagelijkse training: eerst eigen fouten die aan de beurt zijn, dan puzzels die aan herhaling toe zijn,
+ * dan nieuwe puzzels in je zwakke thema's (of alle tactiekthema's als er nog geen patronen zijn).
+ */
+export function pickDaily(args: {
+  puzzles: PuzzleItem[];
+  mistakes: MistakeRecord[];
+  reviews: Map<string, ReviewRecord>;
+  rating: number;
+  weakThemes: string[];
+  count?: number;
+}): PuzzleItem[] {
+  const { puzzles, mistakes, reviews, rating, count = 10 } = args;
+  const now = new Date().toISOString();
+  const own = pickMistakes(mistakes, reviews, 4);
+  const duePuzzles = puzzles.filter((p) => (reviews.get(p.key)?.due ?? "9") <= now).slice(0, 3);
+  const themes = args.weakThemes.length ? args.weakThemes : Object.keys(THEME_NAMES);
+  const taken = new Set([...own, ...duePuzzles].map((p) => p.key));
+  const fresh = pickPuzzles(puzzles, themes, rating, reviews, count).filter((p) => !taken.has(p.key));
+  return [...own, ...duePuzzles, ...fresh].slice(0, count);
+}

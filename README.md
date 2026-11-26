@@ -27,6 +27,10 @@ je vaak maakt.
   per zet telt als fout. Foutloze rondes op rij geven sterren. Aan het eind kun je vanuit die stelling verder spelen.
   Daarnaast eindspelsituaties met een doel: mat zetten, promoveren of **remise houden** (geslaagd bij remise of na
   30 overleefde zetten tegen Stockfish op volle sterkte), o.a. Lucena, Philidor, oppositie en mat met twee lopers.
+- **Train 10 minuten**: een dagelijkse mix van herkansingen, herhalingen en nieuwe puzzels in je zwakke thema's,
+  met een teller voor dagen op rij (per apparaat).
+- **Middenspel**: typische stellingen (geïsoleerde damepion, minderheidsaanval, Drakenvariant, Frans, Koningsindisch).
+  Speel 10 zetten tegen Stockfish; geslaagd als je winstkans niet meer dan 10 procentpunten daalt.
 - **Valstrikken**: de tegenstander loopt in een bekende val (Legal, Blackburne Shilling, Noah's Ark, Lasker, Englund,
   Olifantenval) en jij straft af; of je ontwijkt er een (herdersmat afslaan).
 - **Herkansing**: je eigen fouten en blunders komen terug als opgave ("vind de betere zet"). Met gespreide

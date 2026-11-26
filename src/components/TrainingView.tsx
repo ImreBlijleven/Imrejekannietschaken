@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import { useRouter } from "next/navigation";
 import { Chess } from "chess.js";
 import { Chessboard, type Arrow } from "react-chessboard";
-import { ArrowLeft, ChevronRight, LoaderCircle, RotateCcw, Star, Swords } from "lucide-react";
+import { ArrowLeft, ChevronRight, Flame, LoaderCircle, RotateCcw, Star, Swords } from "lucide-react";
 import { getRepository } from "@/lib/db/dexie-repository";
 import type { DrillRecord } from "@/lib/db/types";
 import {
   OPENINGS,
+  PLANS,
+  PLAN_MOVES,
   TRAPS,
   POSITIONS,
   currentVariation,
@@ -20,16 +22,18 @@ import {
 } from "@/lib/training/drills";
 import { bookMoves, lineLength, pickBookMove } from "@/lib/training/tree";
 import { analyse, buildFacts } from "@/lib/client/analysis";
-import { classify } from "@/lib/chess/evaluation";
+import { classify, winPercent } from "@/lib/chess/evaluation";
 import { ELO_MAX, ELO_MIN, newGame } from "@/lib/client/game-flow";
 import { CoachChat } from "./CoachChat";
 import { PuzzleSession } from "./PuzzleSession";
+import { markTrainedToday, trainingStreak } from "@/lib/training/streak";
 import {
   THEME_NAMES,
   THEMES_FOR_PATTERN,
   dueMistakeCount,
   loadPuzzleRating,
   loadPuzzles,
+  pickDaily,
   pickMistakes,
   pickPuzzles,
   type PuzzleItem,
@@ -72,6 +76,8 @@ async function startGameFrom(
     // Evaluatie van de eindstelling van de theorie, voor de winstkansbalk.
     last.evalAfter = (await analyse(last.fenAfter, 1)).lines[0]?.score ?? { cp: 0 };
     last.bookEval = true;
+    // Middenspel-plan: winstkans bij de start onthouden als maatstaf.
+    if (from?.goal === "plan") game.goalBaseline = winPercent(last.evalAfter, side);
   }
   await repo.saveGame(game);
   router.push(`/?hervat=${game.id}`);
@@ -369,11 +375,25 @@ export function TrainingView() {
   const side = chosenSide ?? storedSide;
   const [stats, setStats] = useState<Map<string, DrillRecord>>(new Map());
   const [active, setActive] = useState<OpeningDrill | null>(null);
-  const [session, setSession] = useState<{ title: string; load: () => Promise<PuzzleItem[]> } | null>(null);
+  const [session, setSession] = useState<{
+    title: string;
+    load: () => Promise<PuzzleItem[]>;
+    onComplete?: () => void;
+  } | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [dueMistakes, setDueMistakes] = useState<number | null>(null);
   const [forYou, setForYou] = useState<string[]>([]);
   // Puzzelrating (op de server: standaardwaarde, geen hydration-verschil).
+  // Dagen op rij (per apparaat; op de server 0, geen hydration-verschil). Opnieuw lezen na elke sessie.
+  const streakKey = useSyncExternalStore(
+    () => () => {},
+    () => {
+      const st = trainingStreak();
+      return `${st.days}:${st.today ? 1 : 0}`;
+    },
+    () => "0:0",
+  );
+  const [streakDays, streakToday] = streakKey.split(":").map(Number);
   const puzzleRating = useSyncExternalStore(
     () => () => {},
     () => loadPuzzleRating(),
@@ -405,7 +425,38 @@ export function TrainingView() {
 
   if (active)
     return <OpeningDrillView drill={active} side={active.trap?.side ?? side} onExit={() => setActive(null)} />;
-  if (session) return <PuzzleSession title={session.title} load={session.load} onExit={() => setSession(null)} />;
+  if (session)
+    return (
+      <PuzzleSession
+        title={session.title}
+        load={session.load}
+        onComplete={session.onComplete}
+        onExit={() => setSession(null)}
+      />
+    );
+
+  /** Dagelijkse training: mix van herkansingen, herhalingen en nieuwe puzzels in je zwakke thema's. */
+  function startDaily() {
+    setSession({
+      title: "Dagelijkse training",
+      onComplete: markTrainedToday,
+      load: async () => {
+        const repo = getRepository();
+        const [puzzles, mistakes, reviews] = await Promise.all([
+          loadPuzzles(),
+          repo.listMistakes(),
+          repo.listReviews(),
+        ]);
+        return pickDaily({
+          puzzles,
+          mistakes,
+          reviews: new Map(reviews.map((r) => [r.id, r])),
+          rating: loadPuzzleRating(),
+          weakThemes: forYou,
+        });
+      },
+    });
+  }
 
   /** Puzzelsessie in één of meer thema's, rond je puzzelrating. */
   function startThemes(title: string, themes: string[]) {
@@ -440,6 +491,18 @@ export function TrainingView() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Oefenen</h1>
+
+      <div className="space-y-2">
+        <Button variant="primary" block className="min-h-14 text-base" onClick={startDaily}>
+          Train 10 minuten
+        </Button>
+        <p className="flex items-center justify-center gap-1.5 text-sm text-[var(--muted)]">
+          <Flame className={`size-4 ${streakDays > 0 ? "text-[var(--inaccuracy)]" : ""}`} aria-hidden />
+          {streakDays === 0
+            ? "Begin vandaag een reeks"
+            : `${streakDays} ${streakDays === 1 ? "dag" : "dagen"} op rij${streakToday ? "" : " · train vandaag om door te gaan"}`}
+        </p>
+      </div>
 
       <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]" aria-label="Voor jou">
         <li>
@@ -502,6 +565,41 @@ export function TrainingView() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-2" aria-label="Middenspel">
+        <h2 className="text-sm text-[var(--muted)]">Middenspel</h2>
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
+          {PLANS.map((p) => (
+            <li key={p.id}>
+              <button
+                onClick={async () => {
+                  setStarting(p.id);
+                  await startGameFrom(router, p.side, ELO_MAX, {
+                    moves: p.moves,
+                    source: `oefenen:${p.id}`,
+                    goal: "plan",
+                    opening: p.name,
+                  });
+                }}
+                disabled={starting !== null}
+                className="flex min-h-16 w-full items-center gap-3 px-1 py-2.5 text-left disabled:opacity-60"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{p.name}</span>
+                  <span className="block truncate text-sm text-[var(--muted)]">
+                    Met {p.side === "w" ? "wit" : "zwart"} · speel {PLAN_MOVES} zetten volgens plan
+                  </span>
+                </span>
+                {starting === p.id ? (
+                  <LoaderCircle className="size-4 animate-spin text-[var(--muted)]" aria-hidden />
+                ) : (
+                  <ChevronRight className="size-4 shrink-0 text-[var(--muted)]" aria-hidden />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="space-y-2" aria-label="Valstrikken">

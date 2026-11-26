@@ -9,7 +9,7 @@ import { getRepository } from "../db/dexie-repository";
 import { newId, now } from "../db/repository";
 import { SCHEMA_VERSION, type GameMode, type GameRecord, type PlyRecord } from "../db/types";
 import { analyse } from "./analysis";
-import { SURVIVE_MOVES } from "../training/drills";
+import { PLAN_MAX_DROP, PLAN_MOVES, SURVIVE_MOVES } from "../training/drills";
 
 // Stockfish ondersteunt UCI_Elo van 1320 t/m 3190 (UCI-optie "UCI_Elo").
 // https://official-stockfish.github.io/docs/stockfish-wiki/UCI-&-Commands.html
@@ -199,6 +199,15 @@ export async function opponentMove(
 export function finishIfOver(game: GameRecord): boolean {
   const chess = chessFromPlies(game.plies, game.startFen);
   if (!chess.isGameOver()) {
+    // Middenspel-plan: na PLAN_MOVES eigen zetten vergelijken we de winstkans met de start.
+    if (game.goal === "plan" && survivedMoves(game) >= PLAN_MOVES) {
+      const last = game.plies.at(-1)!;
+      const now = winPercent(last.evalAfter, game.playerColor);
+      game.result = "*";
+      game.endReason = now >= (game.goalBaseline ?? 50) - PLAN_MAX_DROP ? "doel" : "mislukt";
+      finalize(game);
+      return true;
+    }
     // Doel "remise houden": geslaagd na genoeg overleefde eigen zetten.
     if (game.goal === "remise" && survivedMoves(game) >= SURVIVE_MOVES) {
       game.result = "1/2-1/2";
@@ -233,6 +242,9 @@ export function finalize(game: GameRecord) {
 export type Outcome = "gewonnen" | "verloren" | "remise" | "afgebroken";
 
 export function outcome(game: GameRecord): Outcome {
+  // Oefendoelen: gehaald telt als gewonnen, mislukt als verloren.
+  if (game.endReason === "doel") return "gewonnen";
+  if (game.endReason === "mislukt") return "verloren";
   if (game.result === "1/2-1/2") return "remise";
   if (!game.result || game.result === "*") return "afgebroken";
   const whiteWon = game.result === "1-0";
@@ -240,7 +252,9 @@ export function outcome(game: GameRecord): Outcome {
 }
 
 export function resultText(game: GameRecord): string {
-  if (game.endReason === "doel") return game.goal === "remise" ? "Remise gehouden" : "Doel bereikt";
+  if (game.endReason === "doel")
+    return game.goal === "remise" ? "Remise gehouden" : game.goal === "plan" ? "Plan geslaagd" : "Doel bereikt";
+  if (game.endReason === "mislukt") return "Plan mislukt";
   const o = outcome(game);
   if (o === "remise") return "Remise";
   if (o === "afgebroken") return "Afgebroken";

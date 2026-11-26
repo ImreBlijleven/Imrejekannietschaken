@@ -2,7 +2,7 @@
 // Gebruik: npm run check-drills
 import { Chess } from "chess.js";
 import { createNodeEngine } from "./node-engine.mts";
-import { OPENINGS, POSITIONS, TRAPS } from "../src/lib/training/drills";
+import { OPENINGS, PLANS, POSITIONS, TRAPS } from "../src/lib/training/drills";
 import { classify } from "../src/lib/chess/evaluation";
 
 const { engine, terminate } = createNodeEngine();
@@ -97,6 +97,28 @@ for (const t of TRAPS) {
     }
   }
   console.log(`✓ val ${t.id} (${t.lines.length} lijnen)`);
+}
+
+// Middenspel-plannen: legaal, juiste kant aan zet, en een stelling in balans (niet verloren, niet al beslist).
+for (const p of PLANS) {
+  const c = new Chess();
+  try {
+    for (const m of p.moves) c.move(m);
+  } catch (e) {
+    console.log(`✗ plan ${p.id}: illegale zet (${e})`);
+    problems++;
+    continue;
+  }
+  if (c.turn() !== p.side) {
+    console.log(`✗ plan ${p.id}: verkeerde kant aan zet`);
+    problems++;
+    continue;
+  }
+  const s = (await engine.analyse(c.fen(), { depth: 16 })).lines[0].score;
+  const forSide = (p.side === "w" ? 1 : -1) * (s.cp ?? (s.mate! > 0 ? 1000 : -1000));
+  const ok = s.mate === undefined && forSide > -100 && forSide < 250;
+  console.log(`${ok ? "✓" : "✗"} plan ${p.id}: ${JSON.stringify(s)} (voor de speler ${forSide})`);
+  if (!ok) problems++;
 }
 
 for (const p of POSITIONS) {
