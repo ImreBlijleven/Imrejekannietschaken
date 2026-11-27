@@ -35,6 +35,7 @@ je vaak maakt.
   Olifantenval) en jij straft af; of je ontwijkt er een (herdersmat afslaan).
 - **Herkansing**: je eigen fouten en blunders komen terug als opgave ("vind de betere zet"). Met gespreide
   herhaling: goed → na 1, 3, 7, 16… dagen terug; fout → binnen 10 minuten opnieuw.
+  Puzzels die je in één keer goed oplost komen niet terug; alleen puzzels die je fout had worden herhaald.
 - **Tactiek en Verdedigen**: 1.506 puzzels uit de Lichess-puzzeldatabase (CC0) in 13 thema's (vork, penning, spies,
   mat in 2, verdedigen, …), gekozen rond je puzzelrating. "Voor jou" kiest thema's die bij je foutpatronen passen.
 - **Backup**: export/import als JSON-bestand.

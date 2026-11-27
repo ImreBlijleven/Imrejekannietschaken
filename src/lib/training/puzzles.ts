@@ -80,8 +80,30 @@ export function loadPuzzles(): Promise<PuzzleItem[]> {
 }
 
 /**
- * Kies een sessie: eerst puzzels uit dit thema die aan herhaling toe zijn, dan nieuwe puzzels
- * zo dicht mogelijk bij je puzzelrating.
+ * Moet dit item herhaald worden? Een puzzel die je altijd in één keer goed had, is afgerond en komt
+ * niet terug; alleen puzzels die je ooit fout had (of met hint oploste) worden herhaald.
+ */
+export function isDue(r: ReviewRecord | undefined, now = new Date().toISOString()): boolean {
+  if (!r || r.due > now) return false;
+  if (r.kind === "puzzel" && r.correct === r.attempts) return false;
+  return true;
+}
+
+/** Willekeurige keuze uit de `pool` puzzels die het dichtst bij je rating liggen (zodat elke ronde anders is). */
+function nearRating(list: PuzzleItem[], rating: number, count: number, pool = 60): PuzzleItem[] {
+  const near = [...list]
+    .sort((a, b) => Math.abs((a.rating ?? 0) - rating) - Math.abs((b.rating ?? 0) - rating))
+    .slice(0, Math.max(pool, count));
+  for (let i = near.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [near[i], near[j]] = [near[j], near[i]];
+  }
+  return near.slice(0, count);
+}
+
+/**
+ * Kies een sessie: maximaal een paar herhalingen van puzzels die je eerder fout had, de rest nieuwe
+ * puzzels rond je puzzelrating (willekeurig gekozen, dus elke ronde anders).
  */
 export function pickPuzzles(
   all: PuzzleItem[],
@@ -89,17 +111,16 @@ export function pickPuzzles(
   rating: number,
   reviews: Map<string, ReviewRecord>,
   count = 10,
+  maxRepeats = 3,
 ): PuzzleItem[] {
-  const now = new Date().toISOString();
   const inTheme = all.filter((p) => p.themes?.some((t) => themes.includes(t)));
-  const due = inTheme.filter((p) => {
-    const r = reviews.get(p.key);
-    return r && r.due <= now;
-  });
-  const fresh = inTheme
-    .filter((p) => !reviews.has(p.key))
-    .sort((a, b) => Math.abs((a.rating ?? 0) - rating) - Math.abs((b.rating ?? 0) - rating));
-  return [...due.slice(0, Math.ceil(count / 2)), ...fresh].slice(0, count);
+  const due = inTheme.filter((p) => isDue(reviews.get(p.key))).slice(0, maxRepeats);
+  const fresh = nearRating(
+    inTheme.filter((p) => !reviews.has(p.key)),
+    rating,
+    count - due.length,
+  );
+  return [...due, ...fresh];
 }
 
 /** Herkansing: je fouten en blunders als opgave; eerst wat aan de beurt is, dan nieuwe. */
@@ -110,7 +131,7 @@ export function pickMistakes(mistakes: MistakeRecord[], reviews: Map<string, Rev
     if (m.label !== "fout" && m.label !== "blunder") continue;
     const key = `fout:${m.id}`;
     const r = reviews.get(key);
-    if (r && r.due > now) continue;
+    if (r && !isDue(r, now)) continue;
     let best;
     try {
       best = new Chess(m.fenBefore).move(m.bestSan);
@@ -178,11 +199,9 @@ export function pickDaily(args: {
   count?: number;
 }): PuzzleItem[] {
   const { puzzles, mistakes, reviews, rating, count = 10 } = args;
-  const now = new Date().toISOString();
-  const own = pickMistakes(mistakes, reviews, 4);
-  const duePuzzles = puzzles.filter((p) => (reviews.get(p.key)?.due ?? "9") <= now).slice(0, 3);
+  // Maximaal 3 eigen fouten en 2 herhaalpuzzels; de rest is nieuw.
+  const own = pickMistakes(mistakes, reviews, 3);
   const themes = args.weakThemes.length ? args.weakThemes : Object.keys(THEME_NAMES);
-  const taken = new Set([...own, ...duePuzzles].map((p) => p.key));
-  const fresh = pickPuzzles(puzzles, themes, rating, reviews, count).filter((p) => !taken.has(p.key));
-  return [...own, ...duePuzzles, ...fresh].slice(0, count);
+  const rest = pickPuzzles(puzzles, themes, rating, reviews, count - own.length, 2);
+  return [...own, ...rest];
 }

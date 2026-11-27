@@ -144,7 +144,11 @@ export class DexieRepository implements Repository {
   async recordReview(id: string, kind: ReviewRecord["kind"], correct: boolean, themes?: string[]) {
     const ts = now();
     const prev = await this.db.reviews.get(id);
-    const { streak, due } = nextSchedule(prev?.streak ?? 0, correct);
+    const sched = nextSchedule(prev?.streak ?? 0, correct);
+    // Puzzel die je altijd in één keer goed had: afgerond, geen herhaling nodig.
+    const mastered = kind === "puzzel" && correct && (!prev || prev.correct === prev.attempts);
+    const streak = sched.streak;
+    const due = mastered ? "9999-12-31T00:00:00.000Z" : sched.due;
     const rec: ReviewRecord = {
       id,
       kind,
